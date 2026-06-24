@@ -405,29 +405,31 @@ export function TextEditorMenu({
       </div>
 
       {/* Bottom Sub-Tabs (TEXT, STROKE, GLOW, SPACING, SHADOW) */}
-      <div className="flex items-center justify-between w-full mt-0.5 pb-1">
-        {subTabs.map(tab => {
-          const isActive = activeSubTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => { setActiveTab('style'); setActiveSubTab(tab.id); }}
-              className={`relative flex items-center justify-center px-1.5 py-1.5 sm:px-2 transition-colors duration-200 cursor-pointer outline-none rounded-lg border ${
-                isActive ? 'border-[#3f3f46] bg-[#27272a]/60' : 'border-transparent hover:bg-[#27272a]/30'
-              }`}
-            >
-              <span className={`text-[6px] sm:text-[6.5px] tracking-[0.1em] font-medium uppercase transition-colors whitespace-nowrap ${
-                isActive ? 'text-[#f4f4f5]' : 'text-[#71717a]'
-              }`}>
-                {tab.label}
-              </span>
-              {isActive && (
-                <div className="absolute -bottom-[2px] left-[20%] right-[20%] h-[1.5px] bg-[#ef4444] rounded-t-sm" />
-              )}
-            </button>
-          );
-        })}
-      </div>
+      {activeTab === 'style' && (
+        <div className="flex items-center justify-between w-full mt-0.5 pb-1">
+          {subTabs.map(tab => {
+            const isActive = activeSubTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => { setActiveTab('style'); setActiveSubTab(tab.id); }}
+                className={`relative flex items-center justify-center px-1.5 py-1.5 sm:px-2 transition-colors duration-200 cursor-pointer outline-none rounded-lg border ${
+                  isActive ? 'border-[#3f3f46] bg-[#27272a]/60' : 'border-transparent hover:bg-[#27272a]/30'
+                }`}
+              >
+                <span className={`text-[6px] sm:text-[6.5px] tracking-[0.1em] font-medium uppercase transition-colors whitespace-nowrap ${
+                  isActive ? 'text-[#f4f4f5]' : 'text-[#71717a]'
+                }`}>
+                  {tab.label}
+                </span>
+                {isActive && (
+                  <div className="absolute -bottom-[2px] left-[20%] right-[20%] h-[1.5px] bg-[#ef4444] rounded-t-sm" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </motion.div>
   );
 }

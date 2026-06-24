@@ -1,0 +1,31 @@
+998:  const [selectedRatioTransition, setSelectedRatioTransition] = useState<
+1385:  const [transitionModal, setTransitionModal] = useState<{
+1393:  const isTransitionAllowed = useCallback((clipA: Clip, clipB: Clip): boolean => {
+1409:      if (Math.abs(gap) <= 0.25 && isTransitionAllowed(prev, current)) {
+1414:  }, [isTransitionAllowed]);
+1424:      const hasTransition = c.transition && prev && isTransitionAllowed(prev, c);
+1425:      const td = (hasTransition && c.transition) ? c.transition.duration : 0;
+1427:      if (hasTransition && td > 0 && curTime >= c.leftSeconds && curTime <= c.leftSeconds + td) {
+1456:  }, [isTransitionAllowed]);
+1458:  const addTransition = useCallback((incomingClipId: string, type: string, duration: number, silent = false) => {
+1471:      setToastMessage("Transition applied successfully");
+1476:  const removeTransition = useCallback((incomingClipId: string) => {
+1486:    setToastMessage("Transition removed");
+2473:            setTransitionModal(null);
+4525:    setSelectedRatioTransition(r);
+4529:      setSelectedRatioTransition(null);
+7349:                          {/* Render Transitions for this layer */}
+7352:                            const hasTransition = !!current.transition;
+7373:                                  setTransitionModal({
+7383:                                  hasTransition
+7387:                                title={hasTransition ? `Edit transition: ${current.transition?.type}` : "Add Transition"}
+7389:                                <div className={hasTransition ? "-rotate-45" : ""}>
+7390:                                  {hasTransition ? (
+7513:                        <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest leading-none">Transition</span>
+7522:                              removeTransition(transitionModal.currentClipId);
+7523:                              setTransitionModal(null);
+7534:                            setTransitionModal(null);
+7554:                              setTransitionModal(updatedModal);
+7555:                              addTransition(transitionModal.currentClipId, opt.id, transitionModal.duration, true);
+7585:                          setTransitionModal(prev => prev ? { ...prev, duration: val } : null);
+7586:                          addTransition(transitionModal.currentClipId, transitionModal.type, val, true);

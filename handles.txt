@@ -1,0 +1,140 @@
+330:  onTrimStart: (e: React.PointerEvent<HTMLDivElement>, clip: Clip, handle: "left" | "right") => void;
+711:      {/* Upgraded Trim Controls with premium vertically-inset glossy glass handle pills */}
+964:  const handleToggleSnapping = (enabled: boolean) => {
+991:  const handleAppScaleChange = (scale: number) => {
+1060:  const handleMediaTouchStart = (e: React.TouchEvent) => {
+1064:  const handleMediaTouchMove = (e: React.TouchEvent) => {
+1077:  const handleMediaTouchEnd = () => {
+1601:  const handleCopySettings = (type: string) => {
+1667:  const handlePasteSettings = (type: string) => {
+1681:            handleCopySettings(menuType);
+1693:            handlePasteSettings(menuType);
+1752:  const handleClipError = (clipId: string) => {
+1985:    const handleKeyDown = (e: KeyboardEvent) => {
+2088:    window.addEventListener("keydown", handleKeyDown);
+2090:      window.removeEventListener("keydown", handleKeyDown);
+2354:  const handleRecordClick = async () => {
+2412:  const handleBackToHome = () => {
+2425:      const handlePopState = (event: PopStateEvent) => {
+2426:        handleBackToHome();
+2429:      window.addEventListener("popstate", handlePopState);
+2432:        window.removeEventListener("popstate", handlePopState);
+2437:  // Create refs for back-button-related states to avoid stale closures in unified Capacitor back handler
+2485:            handleBackToHome();
+2768:  const handleSelectMediaItem = (item: { name: string; url: string; type: "video" | "image" | "audio"; duration?: number; thumbnail?: string }) => {
+2810:  const handleAddText = () => {
+2850:  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+2978:  const handleToggleKeyframe = useCallback(() => {
+3114:  const handleSmoothSlowMo = async () => {
+3265:  const handleCopy = () => {
+3296:      handleCopy();
+3307:  const handleExtractAudio = () => {
+3347:  const handleStabilize = (clipId: string, mode: "standard" | "active" | "locked" | "off") => {
+3423:  const handlePaste = () => {
+3494:  const handleLayerPointerDown = (e: React.PointerEvent, layerId: string) => {
+3590:    const handleTouchStart = (e: TouchEvent) => {
+3600:    const handleTouchMove = (e: TouchEvent) => {
+3612:    const handleTouchEnd = (e: TouchEvent) => {
+3618:    const handleWheel = (e: WheelEvent) => {
+3628:    container.addEventListener("touchstart", handleTouchStart, {
+3631:    container.addEventListener("touchmove", handleTouchMove, {
+3634:    container.addEventListener("touchend", handleTouchEnd);
+3635:    container.addEventListener("wheel", handleWheel, { passive: false });
+3638:      container.removeEventListener("touchstart", handleTouchStart);
+3639:      container.removeEventListener("touchmove", handleTouchMove);
+3640:      container.removeEventListener("touchend", handleTouchEnd);
+3641:      container.removeEventListener("wheel", handleWheel);
+3659:  const handlePreviewTouchStart = (e: React.TouchEvent) => {
+3689:  const handlePreviewTouchMove = (e: React.TouchEvent) => {
+3767:  const handlePreviewTouchEnd = (e: React.TouchEvent) => {
+3773:  const handleClipDragStart = (e: React.PointerEvent, clip: Clip) => {
+3824:    const handlePointerMove = (moveEvent: PointerEvent) => {
+4049:    const handlePointerUp = (upEvent: PointerEvent) => {
+4054:      window.removeEventListener("pointermove", handlePointerMove);
+4055:      window.removeEventListener("pointerup", handlePointerUp);
+4056:      window.removeEventListener("pointercancel", handlePointerUp);
+4082:    window.addEventListener("pointermove", handlePointerMove);
+4083:    window.addEventListener("pointerup", handlePointerUp);
+4084:    window.addEventListener("pointercancel", handlePointerUp);
+4087:  const handleTrimStart = (
+4101:    const handlePointerMove = (moveEvent: PointerEvent) => {
+4501:    const handlePointerUp = (upEvent: PointerEvent) => {
+4503:      window.removeEventListener("pointermove", handlePointerMove);
+4504:      window.removeEventListener("pointerup", handlePointerUp);
+4507:    window.addEventListener("pointermove", handlePointerMove);
+4508:    window.addEventListener("pointerup", handlePointerUp);
+4524:  const handleCreateProject = (r: string) => {
+4533:  const handleMoveFlowBarItem = (index: number, direction: 'up' | 'down') => {
+4594:                        onClick={() => handleMoveFlowBarItem(index, 'up')}
+4601:                        onClick={() => handleMoveFlowBarItem(index, 'down')}
+4631:                  onChange={(e) => handleAppScaleChange(parseFloat(e.target.value))}
+4640:                  onClick={() => handleAppScaleChange(1)}
+4659:                  onClick={() => handleToggleSnapping(!snappingEnabled)}
+5151:                   handleCreateProject(focusedRatio === "custom" ? `${customRatioW}:${customRatioH}` : focusedRatio);
+5482:              onTouchStart={handlePreviewTouchStart}
+5483:              onTouchMove={handlePreviewTouchMove}
+5484:              onTouchEnd={handlePreviewTouchEnd}
+5485:              onTouchCancel={handlePreviewTouchEnd}
+5721:                                    onError={() => handleClipError(activeClip.id)}
+5783:                                             onError={() => handleClipError(activeClip.id)}
+5810:                                               onError={() => handleClipError(activeClip.id)}
+5844:                                       onError={() => handleClipError(activeClip.id)}
+5876:                                onError={() => handleClipError(activeClip.id)}
+5907:                onTouchStart={handleMediaTouchStart}
+5908:                onTouchMove={handleMediaTouchMove}
+5909:                onTouchEnd={handleMediaTouchEnd}
+6024:                                    handleSelectMediaItem(item);
+6045:                                    handleSelectMediaItem(item);
+6064:                                    handleSelectMediaItem(item);
+6196:                      handlePaste();
+6307:                onClick={handleToggleKeyframe}
+6453:                            handleLayerPointerDown(e, layer.id)
+6683:                    const handlePointerMove = (moveEvent: PointerEvent) => {
+6693:                    const handlePointerUp = (upEvent: PointerEvent) => {
+6697:                        handlePointerMove,
+6699:                      window.removeEventListener("pointerup", handlePointerUp);
+6701:                    window.addEventListener("pointermove", handlePointerMove);
+6702:                    window.addEventListener("pointerup", handlePointerUp);
+6766:                    const handlePointerMove = (moveEvent: PointerEvent) => {
+6824:                    const handlePointerUp = (upEvent: PointerEvent) => {
+6845:                      window.removeEventListener("pointermove", handlePointerMove);
+6846:                      window.removeEventListener("pointerup", handlePointerUp);
+6847:                      window.removeEventListener("pointercancel", handlePointerUp);
+6850:                    window.addEventListener("pointermove", handlePointerMove, { passive: false });
+6851:                    window.addEventListener("pointerup", handlePointerUp);
+6852:                    window.addEventListener("pointercancel", handlePointerUp);
+6946:                                onPointerDown={handleClipDragStart}
+6947:                                onClipError={handleClipError}
+6948:                                onTrimStart={handleTrimStart}
+6958:                                  handleClipDragStart(e, clip)
+7093:                                      onError={() => handleClipError(clip.id)}
+7105:                                      onError={() => handleClipError(clip.id)}
+7317:                                {/* Trim Controls with premium high-tech glowing edge handle bar */}
+7322:                                        handleTrimStart(e, clip, "left")
+7334:                                        handleTrimStart(e, clip, "right")
+7428:                                handleAddText();
+8238:                            onClick={() => handleStabilize(clip.id, "standard")}
+8246:                            onClick={() => handleStabilize(clip.id, "active")}
+8254:                            onClick={() => handleStabilize(clip.id, "locked")}
+8263:                              onClick={() => handleStabilize(clip.id, "off")}
+9018:                    <div className="relative group cursor-pointer shrink-0" onClick={handleRecordClick}>
+9095:                  const handlePresetPointerDown = (presetId: string, e: React.PointerEvent) => {
+9126:                  const handlePresetPointerUp = (presetId: string, e: React.PointerEvent) => {
+9144:                  const handlePresetPointerCancel = () => {
+9183:                              onPointerDown={(e) => handlePresetPointerDown(preset.id, e)}
+9184:                              onPointerUp={(e) => handlePresetPointerUp(preset.id, e)}
+9185:                              onPointerCancel={handlePresetPointerCancel}
+9186:                              onPointerLeave={handlePresetPointerCancel}
+9271:                    const handleSvgPointerDown = (e: React.PointerEvent, handleIdx: 1 | 2) => {
+9274:                      setDraggingHandle(handleIdx);
+9278:                    const handleSvgPointerMove = (e: React.PointerEvent) => {
+9313:                    const handleSvgPointerUp = (e: React.PointerEvent) => {
+9326:                            onPointerMove={handleSvgPointerMove}
+9327:                            onPointerUp={handleSvgPointerUp}
+9328:                            onPointerCancel={handleSvgPointerUp}
+9354:                              onPointerDown={(e) => handleSvgPointerDown(e, 1)}
+9364:                              onPointerDown={(e) => handleSvgPointerDown(e, 2)}
+9476:                      <motion.button key={key} layout className={`p-1 shrink-0 rounded-full transition-colors snap-start flex items-center justify-center ${selectedClipId && clips.find((c) => c.id === selectedClipId)?.type === "text" ? (activeExpandedMenu === "text" ? "bg-zinc-700 text-white" : "hover:bg-zinc-700 text-white") : "hover:bg-zinc-700 text-white"}`} onClick={() => { const sel = clips.find((c) => c.id === selectedClipId); if (sel && sel.type === "text") { setActiveExpandedMenu(activeExpandedMenu === "text" ? null : "text"); } else { handleAddText(); } }}><Type size={14} /></motion.button>
+9518:                      <motion.button key={key} layout className={`p-1 shrink-0 rounded-full transition-colors snap-start flex items-center justify-center ${selectedClipId && clips.find(c => c.id === selectedClipId)?.type === "video" ? "hover:bg-zinc-700 text-white" : "opacity-30"}`} disabled={!selectedClipId || clips.find(c => c.id === selectedClipId)?.type !== "video"} onClick={handleExtractAudio}><Music size={14} /></motion.button>
+9524:                      <motion.button key={key} layout className={`p-1 shrink-0 rounded-full transition-colors snap-start flex items-center justify-center ${selectedClipId ? "hover:bg-zinc-700 text-white" : "opacity-30"}`} disabled={!selectedClipId} onClick={handleSmoothSlowMo}><Wand2 size={14} /></motion.button>
+9542:              onChange={handleFileUpload}
