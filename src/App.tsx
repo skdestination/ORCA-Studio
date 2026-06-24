@@ -1046,11 +1046,33 @@ export default function App() {
   const [zoomLevel, setZoomLevel] = useState(1); // 1 = normal, 2 = zoomed in
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [stabilizingProgress, setStabilizingProgress] = useState<{ clipId: string; progress: number; stage: string } | null>(null);
-  const [playheadX, setPlayheadX] = useState(60);
-  const playheadXRef = useRef(60);
+  // Stationary playhead position
+  const PLAYHEAD_X = 60;
+  const TIMELINE_AREA_START = 100;
+  const [lastCreatedTextClipId, setLastCreatedTextClipId] = useState<string | null>(null);
+  const [lastCreatedTextLayerId, setLastCreatedTextLayerId] = useState<string | null>(null);
+  const previousExpandedMenuRef = useRef<string | null>(null);
   const [activeExpandedMenu, setActiveExpandedMenu] = useState<string | null>(
     null,
   );
+  const lastAddedTextClipIdRef = useRef<string | null>(null);
+  const prevActiveExpandedMenuRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (prevActiveExpandedMenuRef.current === 'text' && activeExpandedMenu !== 'text') {
+      const clipId = lastAddedTextClipIdRef.current;
+      if (clipId) {
+        const clip = clips.find(c => c.id === clipId);
+        if (clip && clip.type === 'text' && (!clip.text || clip.text.trim() === '')) {
+          setClips(prev => prev.filter(c => c.id !== clip.id));
+          setLayers(prev => prev.filter(l => l.id !== clip.layerId));
+        }
+        lastAddedTextClipIdRef.current = null;
+      }
+    }
+    prevActiveExpandedMenuRef.current = activeExpandedMenu;
+  }, [activeExpandedMenu, clips]);
+
   const [isMediaPermissionGranted, setIsMediaPermissionGranted] = useState<boolean>(false);
   const [selectedMediaTab, setSelectedMediaTab] = useState<"Image" | "Video" | "Audio" | "Folders">("Image");
   const [currentMediaFolder, setCurrentMediaFolder] = useState<string | null>(null);
@@ -1907,25 +1929,6 @@ export default function App() {
   const animationFrameRef = useRef<number>();
   const lastTimeRef = useRef<number>();
 
-  // Centering logic for the stationary playhead
-  const updatePlayheadCenter = useCallback(() => {
-    if (timelineScrollRef.current) {
-      const width = timelineScrollRef.current.clientWidth;
-      const newPlayheadX = Math.max(100, Math.floor((width - 100) / 2));
-      setPlayheadX(newPlayheadX);
-      playheadXRef.current = newPlayheadX;
-    }
-  }, []);
-
-  useEffect(() => {
-    updatePlayheadCenter();
-    window.addEventListener("resize", updatePlayheadCenter);
-    const timer = setTimeout(updatePlayheadCenter, 300);
-    return () => {
-      window.removeEventListener("resize", updatePlayheadCenter);
-      clearTimeout(timer);
-    };
-  }, [updatePlayheadCenter]);
 
   // Real-time synchronization
   const isPlayingRef = useRef(isPlaying);
@@ -2828,6 +2831,7 @@ export default function App() {
     });
 
     const newTextId = Math.random().toString(36).substring(2, 9);
+    lastAddedTextClipIdRef.current = newTextId;
     setClips((prev) => [
       ...prev,
       {
@@ -2976,10 +2980,12 @@ export default function App() {
   }
 
   const handleToggleKeyframe = useCallback(() => {
-    if (!selectedClipId) return;
+    if (!selectedClipId || !timelineScrollRef.current) return;
+    const playheadTime = currentTimeRef.current;
+    
     setClips(prev => prev.map(c => {
       if (c.id !== selectedClipId) return c;
-      const timeInClip = currentTime - c.leftSeconds;
+      const timeInClip = playheadTime - c.leftSeconds;
       const keyframes = c.keyframes || [];
       const isVolMode = activeExpandedMenu === "volume";
 
@@ -3048,16 +3054,25 @@ export default function App() {
   }, [selectedClipId, currentTime, activeExpandedMenu]);
 
   function splitSelectedClip() {
-    if (!selectedClipId) return;
-    const clip = clips.find((c) => c.id === selectedClipId);
+    if (!timelineScrollRef.current) return;
+    const playheadTime = currentTimeRef.current;
+    
+    let clip = clips.find((c) => c.id === selectedClipId);
+
+    // If no clip selected or selected clip not at playheadTime, find the clip under playhead
+    if (!clip || !(playheadTime >= clip.leftSeconds && playheadTime <= clip.leftSeconds + clip.durationSeconds)) {
+      clip = clips.find((c) => playheadTime >= c.leftSeconds && playheadTime <= c.leftSeconds + c.durationSeconds);
+    }
+
     if (!clip) return;
 
-    const isWithin =
-      currentTime > clip.leftSeconds &&
-      currentTime < clip.leftSeconds + clip.durationSeconds;
-    if (!isWithin) return;
+    const firstDuration = playheadTime - clip.leftSeconds;
+    
+    // Ensure we are splitting at a valid point within the clip
+    if (firstDuration <= 0.01 || firstDuration >= clip.durationSeconds - 0.01) {
+      return;
+    }
 
-    const firstDuration = currentTime - clip.leftSeconds;
     const newClipId = "C_" + Math.random().toString(36).substring(2, 9);
     const speed = clip.speed || 1.0;
     const fullOrgDur = clip.originalDurationSeconds !== undefined ? clip.originalDurationSeconds : clip.durationSeconds * speed;
@@ -3082,7 +3097,7 @@ export default function App() {
       : [];
 
     setClips((prev) => {
-      const rest = prev.filter((c) => c.id !== selectedClipId);
+      const rest = prev.filter((c) => c.id !== clip.id);
       const newClip1 = {
         ...clip,
         cropRect: clip.cropRect ? { ...clip.cropRect } : undefined,
@@ -3094,7 +3109,7 @@ export default function App() {
         ...clip,
         id: newClipId,
         cropRect: clip.cropRect ? { ...clip.cropRect } : undefined,
-        leftSeconds: currentTime,
+        leftSeconds: playheadTime,
         trimStartSeconds: clip.trimStartSeconds + firstDuration * speed,
         durationSeconds: clip.durationSeconds - firstDuration,
         originalDurationSeconds: fullOrgDur,
@@ -4098,9 +4113,30 @@ export default function App() {
     const initialDurationSeconds = clip.durationSeconds;
     const initialTrimStartSeconds = clip.trimStartSeconds;
 
+    const innerRectInit = document.getElementById("timeline-inner")?.getBoundingClientRect();
+    const initialClickCanvasX = innerRectInit ? (startX - innerRectInit.left) : startX;
+
     const handlePointerMove = (moveEvent: PointerEvent) => {
+      // --- AUTO SCROLL WHEN TRIMMING NEAR EDGES ---
+      if (timelineScrollRef.current) {
+        const container = timelineScrollRef.current;
+        const containerRect = container.getBoundingClientRect();
+        const margin = 50; 
+        if (moveEvent.clientX > containerRect.right - margin) {
+          const speedFactor = (moveEvent.clientX - (containerRect.right - margin)) * 0.15;
+          container.scrollLeft += Math.min(10, speedFactor);
+        } else if (moveEvent.clientX < containerRect.left + margin) {
+          const speedFactor = ((containerRect.left + margin) - moveEvent.clientX) * 0.15;
+          container.scrollLeft -= Math.min(10, speedFactor);
+        }
+      }
+
+      const innerRectCurr = document.getElementById("timeline-inner")?.getBoundingClientRect();
+      const currentClickCanvasX = innerRectCurr ? (moveEvent.clientX - innerRectCurr.left) : (moveEvent.clientX - startX);
       const deltaX = moveEvent.clientX - startX;
-      let deltaSeconds = deltaX / currentPixelsPerSecondRef.current;
+      let deltaSeconds = innerRectInit && innerRectCurr 
+        ? (currentClickCanvasX - initialClickCanvasX) / currentPixelsPerSecondRef.current
+        : deltaX / currentPixelsPerSecondRef.current;
 
       let nextTime = currentTime;
 
@@ -6372,7 +6408,7 @@ const renderEditor = () => (
           className="flex-1 w-full relative overflow-auto scrollbar-hide bg-[#0c0c0e]"
           style={{ touchAction: "pan-x pan-y" }}
           onScroll={(e) => {
-            if (!isPlayingRef.current) {
+            if (!isPlayingRef.current && !isRecordingRef.current) {
               const currentTarget = e.currentTarget;
               if ((currentTarget as any)._rafScrollScheduled) return;
               (currentTarget as any)._rafScrollScheduled = true;
@@ -6380,8 +6416,8 @@ const renderEditor = () => (
                 if (currentTarget) {
                   (currentTarget as any)._rafScrollScheduled = false;
                   setCurrentTime(
-                    currentTarget.scrollLeft /
-                      currentPixelsPerSecondRef.current
+                    Math.max(0, currentTarget.scrollLeft /
+                      currentPixelsPerSecondRef.current)
                   );
                 }
               });
@@ -6612,8 +6648,8 @@ const renderEditor = () => (
             {/* STATIONARY PLAYHEAD (Simple & clean flat design) */}
             {layers.length > 0 && (
               <div
-                className="sticky top-0 left-[60px] pointer-events-none z-[60] w-0 h-0"
-                style={{ transform: `translate3d(${playheadX}px, 0, 0)`, willChange: "transform" }}
+                className="sticky top-0 left-[100px] pointer-events-none z-[60] w-0 h-0"
+                style={{ transform: `translate3d(${PLAYHEAD_X}px, 0, 0)`, willChange: "transform" }}
               >
                 <div className="absolute top-0 -translate-x-1/2 flex flex-col items-center">
                   {/* Clean flat red playhead cap */}
@@ -6706,7 +6742,7 @@ const renderEditor = () => (
                     className="relative h-full bg-[#0c0c0e]/95 backdrop-blur-md border-b border-white/[0.05] hover:bg-[#121216]"
                     style={{
                       width: `${maxTimelineDuration * pixelsPerSecond}px`,
-                      left: `${playheadX}px`,
+                      left: `${PLAYHEAD_X}px`,
                     }}
                   >
                     <TimelineRulerTicks
@@ -6785,10 +6821,13 @@ const renderEditor = () => (
                         // Marquee Selection Mode!
                         if (!isMouse) moveEvent.preventDefault(); // attempt to stop scroll on touch if we can
 
-                        const curX = moveEvent.clientX - rect.left + masterScroll.scrollLeft;
-                        const curY = moveEvent.clientY - rect.top + masterScroll.scrollTop;
-                        const absStartX = startX - rect.left + masterScroll.scrollLeft;
-                        const absStartY = startY - rect.top + masterScroll.scrollTop;
+                        const scrollDeltaX = masterScroll.scrollLeft - startScrollLeft;
+                        const scrollDeltaY = masterScroll.scrollTop - startScrollTop;
+                        
+                        const curX = moveEvent.clientX - rect.left + scrollDeltaX;
+                        const curY = moveEvent.clientY - rect.top + scrollDeltaY;
+                        const absStartX = startX - rect.left;
+                        const absStartY = startY - rect.top;
 
                         setMarquee({ startX: absStartX, startY: absStartY, currentX: curX, currentY: curY });
 
@@ -6897,7 +6936,7 @@ const renderEditor = () => (
                     className="relative min-h-full w-full"
                     style={{
                       width: `${maxTimelineDuration * pixelsPerSecond}px`,
-                      left: `${playheadX}px`,
+                      left: `${PLAYHEAD_X}px`,
                     }}
                   >
                     {/* Moving Playhead Cursor Removed (Now stationary in parent) */}

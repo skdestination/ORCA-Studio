@@ -167,7 +167,7 @@ export function TextEditorMenu({
       </div>
 
       {/* Main Content Area */}
-      <div className="w-full flex-1 min-h-[76px] overflow-visible">
+      <div className="w-full flex-1 h-[76px] overflow-hidden">
         <AnimatePresence mode="wait">
           {activeTab === 'preset' && (
             <motion.div
