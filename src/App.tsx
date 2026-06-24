@@ -774,6 +774,15 @@ export default function App() {
 
   const micStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const timelineContainerRef = useRef<HTMLDivElement>(null);
+  const [timelineScrollLeft, setTimelineScrollLeft] = useState(0);
+  const [timelineContainerWidth, setTimelineContainerWidth] = useState(0);
+  
+  useLayoutEffect(() => {
+    if (timelineContainerRef.current) {
+      setTimelineContainerWidth(timelineContainerRef.current.clientWidth);
+    }
+  }, []);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const micLevelsAnimFrameRef = useRef<number | null>(null);
   const recordingStartPlayheadTimeRef = useRef<number>(0);
@@ -2172,12 +2181,16 @@ export default function App() {
         canvas.height = exportHeight;
       }
       const ctx = canvas.getContext("2d")!;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
 
       const fps = parseInt(exportFps) || 30;
       const stream = canvas.captureStream(fps);
 
       const bestType = getBestSupportedVideoType();
-      const recorderOptions: MediaRecorderOptions = {};
+      const recorderOptions: MediaRecorderOptions = {
+        videoBitsPerSecond: Math.min(exportWidth * exportHeight * fps * 0.15, 8000000), // Cap at 8Mbps
+      };
       if (bestType.mime) {
         recorderOptions.mimeType = bestType.mime;
       }
@@ -6408,6 +6421,7 @@ const renderEditor = () => (
           className="flex-1 w-full relative overflow-auto scrollbar-hide bg-[#0c0c0e]"
           style={{ touchAction: "pan-x pan-y" }}
           onScroll={(e) => {
+            setTimelineScrollLeft(e.currentTarget.scrollLeft);
             if (!isPlayingRef.current && !isRecordingRef.current) {
               const currentTarget = e.currentTarget;
               if ((currentTarget as any)._rafScrollScheduled) return;
@@ -6970,7 +6984,16 @@ const renderEditor = () => (
 
                           {/* Render Clips for this layer */}
                           {clips
-                            .filter((c) => c.layerId === layer.id)
+                            .filter((c) => {
+                              const start = c.leftSeconds * pixelsPerSecond;
+                              const end = start + Math.max(2, c.durationSeconds * pixelsPerSecond);
+                              const buffer = 200; // Buffer for virtualization
+                              return (
+                                c.layerId === layer.id &&
+                                end > timelineScrollLeft - buffer &&
+                                start < timelineScrollLeft + timelineContainerWidth + buffer
+                              );
+                            })
                             .map((clip) => (
                               <TimelineClipItem
                                 key={clip.id}
