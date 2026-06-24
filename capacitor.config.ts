@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.litecut.app',
-  appName: 'LiteCut',
+  appName: 'ORCA',
   webDir: 'dist',
   plugins: {
     SplashScreen: {

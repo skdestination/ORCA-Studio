@@ -1,5 +1,5 @@
 {
-  "name": "Orca",
+  "name": "ORCA",
   "description": "A lightweight, intuitive video editing app with trim, merge, slow-motion, and color grading features.",
   "requestFramePermissions": [
     "microphone"

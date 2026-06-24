@@ -1,6 +1,6 @@
 {
 	"appId": "com.litecut.app",
-	"appName": "LiteCut",
+	"appName": "ORCA",
 	"webDir": "dist",
 	"plugins": {
 		"SplashScreen": {
