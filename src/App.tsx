@@ -2184,6 +2184,31 @@ export default function App() {
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
+      // Load all source media
+      const sourceMediaMap = new Map<string, HTMLVideoElement | HTMLImageElement>();
+      await Promise.all(clips.map(async (clip) => {
+        if (sourceMediaMap.has(clip.id)) return;
+        if (clip.type === 'video') {
+          const video = document.createElement('video');
+          video.src = clip.src;
+          video.muted = true;
+          video.load();
+          await new Promise((resolve, reject) => {
+            video.onloadedmetadata = resolve;
+            video.onerror = reject;
+          });
+          sourceMediaMap.set(clip.id, video);
+        } else if (clip.type === 'image') {
+          const img = new Image();
+          img.src = clip.src;
+          await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+          });
+          sourceMediaMap.set(clip.id, img);
+        }
+      }));
+
       const fps = parseInt(exportFps) || 30;
       const stream = canvas.captureStream(fps);
 
@@ -2253,9 +2278,15 @@ export default function App() {
           );
           if (!clip) continue;
 
-          const elId = `clip-media-${clip.id}`;
-          const el = document.getElementById(elId) as any;
+          const el = sourceMediaMap.get(clip.id);
           if (el && (el.tagName === "IMG" || el.tagName === "VIDEO")) {
+            if (el.tagName === "VIDEO") {
+                const video = el as HTMLVideoElement;
+                const seekTime = Math.max(0, elapsed - clip.leftSeconds);
+                if (Math.abs(video.currentTime - seekTime) > 0.1) {
+                    video.currentTime = seekTime;
+                }
+            }
             ctx.save();
             ctx.translate(canvas.width / 2, canvas.height / 2);
 
@@ -2268,8 +2299,8 @@ export default function App() {
             ctx.rotate(((clip.rotation || 0) * Math.PI) / 180);
             ctx.scale(clip.scale ?? 1, clip.scale ?? 1);
 
-            const imgW = el.videoWidth || el.naturalWidth || canvas.width;
-            const imgH = el.videoHeight || el.naturalHeight || canvas.height;
+            const imgW = (el as HTMLVideoElement).videoWidth || (el as HTMLImageElement).naturalWidth || canvas.width;
+            const imgH = (el as HTMLVideoElement).videoHeight || (el as HTMLImageElement).naturalHeight || canvas.height;
             if (imgW && imgH) {
               const imgRatio = imgW / imgH;
               const canvasRatio = canvas.width / canvas.height;

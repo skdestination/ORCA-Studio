@@ -474,7 +474,21 @@ public class SmoothSlowMotionPlugin extends Plugin {
                                     File cacheDir = getContext().getCacheDir();
                                     File outputFile = new File(cacheDir, "slowmo_output_" + System.currentTimeMillis() + ".mp4");
                                     outputPath = outputFile.getAbsolutePath();
-                                    encoderCore = new VideoEncoderCore(outputPath, width, height, inputFps);
+                                    
+                                    int rotation = 0;
+                                    MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+                                    try {
+                                        retriever.setDataSource(inputPath);
+                                        String rotationStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION);
+                                        if (rotationStr != null) {
+                                            rotation = Integer.parseInt(rotationStr);
+                                        }
+                                    } catch (Exception ignored) {
+                                    } finally {
+                                        retriever.release();
+                                    }
+
+                                    encoderCore = new VideoEncoderCore(outputPath, width, height, inputFps, rotation);
                                     Log.i(TAG, "Initialized VideoEncoderCore with output path: " + outputPath);
                                 } catch (Exception encInitErr) {
                                     Log.e(TAG, "Failed to initialize encoderCore: " + encInitErr.getMessage(), encInitErr);
@@ -984,7 +998,7 @@ public class SmoothSlowMotionPlugin extends Plugin {
             mFrameCopies = 0;
         }
 
-        public VideoEncoderCore(String outputPath, int width, int height, int fps) throws Exception {
+        public VideoEncoderCore(String outputPath, int width, int height, int fps, int rotationDegrees) throws Exception {
             mWidth = width;
             mHeight = height;
             mFps = fps;
@@ -1001,6 +1015,7 @@ public class SmoothSlowMotionPlugin extends Plugin {
             mEncoder.start();
 
             mMuxer = new MediaMuxer(outputPath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            mMuxer.setOrientationHint(rotationDegrees);
         }
 
         public int getSubmittedCount() {
