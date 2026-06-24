@@ -1,0 +1,215 @@
+249:  useEffect(() => {
+250-    try {
+251-      const savedScale = localStorage.getItem("ai_studio_app_scale");
+252-      if (savedScale && !isNaN(parseFloat(savedScale))) {
+253-        setAppScale(parseFloat(savedScale));
+254-      }
+255-    } catch(e){}
+256-  }, []);
+257-
+258-  const handleAppScaleChange = (scale: number) => {
+259-    setAppScale(scale);
+260-    localStorage.setItem("ai_studio_app_scale", scale.toString());
+261-  };
+262-
+263-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+264-  const [isCreatingProject, setIsCreatingProject] = useState(false);
+265-  const [selectedRatioTransition, setSelectedRatioTransition] = useState<
+266-    string | null
+267-  >(null);
+268-  const [focusedRatio, setFocusedRatio] = useState<string>("9:16");
+269-  const [customRatioW, setCustomRatioW] = useState("1080");
+270-  const [customRatioH, setCustomRatioH] = useState("1920");
+271-
+272-  // Editor State
+273-  const [currentProjectRatio, setCurrentProjectRatio] =
+274-    useState<string>("9:16");
+--
+336:  useEffect(() => {
+337-    if (selectedClipId) {
+338-      const clip = clips.find((c) => c.id === selectedClipId);
+339-      if (clip) {
+340-        setClipVolume(typeof clip.volume === "number" ? clip.volume : 100);
+341-      }
+342-    }
+343-  }, [selectedClipId]);
+344-
+345:  useEffect(() => {
+346-    // Intentional omission of empty layer cleanup so users can add empty layers
+347-  }, [clips, layers]);
+348-
+349:  useEffect(() => {
+350-    if (isUndoRedoAction.current) {
+351-      isUndoRedoAction.current = false;
+352-      return;
+353-    }
+354-    const timeout = setTimeout(() => {
+355-      setHistory((prev) => {
+356-        const last = prev[historyIndex] || prev[prev.length - 1];
+357-        if (
+358-          last &&
+359-          JSON.stringify(last.layers) === JSON.stringify(layers) &&
+360-          JSON.stringify(last.clips) === JSON.stringify(clips)
+361-        ) {
+362-          return prev;
+363-        }
+364-        let newHistory = prev.slice(0, historyIndex + 1);
+365-        newHistory.push({ layers, clips });
+366-        if (newHistory.length > 50)
+367-          newHistory = newHistory.slice(newHistory.length - 50);
+368-        setHistoryIndex(newHistory.length - 1);
+369-        return newHistory;
+370-      });
+371-    }, 300);
+372-    return () => clearTimeout(timeout);
+373-  }, [layers, clips, historyIndex]);
+374-
+--
+405:  useEffect(() => {
+406-    isPlayingRef.current = isPlaying;
+407-  }, [isPlaying]);
+408-
+409:  useEffect(() => {
+410-    const playLoop = (time: number) => {
+411-      if (lastTimeRef.current === undefined) lastTimeRef.current = time;
+412-      const deltaTime = (time - lastTimeRef.current) / 1000;
+413-      lastTimeRef.current = time;
+414-
+415-      if (isPlayingRef.current) {
+416-        setCurrentTime((prev) => {
+417-          const next = prev + deltaTime;
+418-          if (timelineScrollRef.current) {
+419-            const container = timelineScrollRef.current;
+420-            container.scrollLeft = Math.max(
+421-              0,
+422-              next * pixelsPerSecond - playheadXRef.current,
+423-            );
+424-          }
+425-          return next;
+426-        });
+427-      }
+428-      animationFrameRef.current = requestAnimationFrame(playLoop);
+429-    };
+430-    animationFrameRef.current = requestAnimationFrame(playLoop);
+431-
+432-    return () => {
+433-      if (animationFrameRef.current)
+434-        cancelAnimationFrame(animationFrameRef.current);
+--
+672:  useEffect(() => {
+673-    if (currentScreen === "editor" && activeProjectId) {
+674-      setProjects((prev) => {
+675-        const updated = prev.map((p) => {
+676-          if (p.id === activeProjectId) {
+677-            // compute max duration
+678-            let maxDuration = 0;
+679-            for (const c of clips) {
+680-              if (c.leftSeconds + c.durationSeconds > maxDuration) {
+681-                maxDuration = c.leftSeconds + c.durationSeconds;
+682-              }
+683-            }
+684-
+685-            return {
+686-              ...p,
+687-              ratio: currentProjectRatio,
+688-              layers,
+689-              clips,
+690-              updatedAt: "Just now",
+691-              duration: formatTime(maxDuration),
+692-            };
+693-          }
+694-          return p;
+695-        });
+696-        // We debounce local storage save slightly or just write it
+697-        localStorage.setItem(
+--
+1091:  useEffect(() => {
+1092-    currentPixelsPerSecondRef.current = pixelsPerSecond;
+1093-  }, [pixelsPerSecond]);
+1094-
+1095-  const currentZoomLevelRef = useRef(zoomLevel);
+1096:  useEffect(() => {
+1097-    currentZoomLevelRef.current = zoomLevel;
+1098-  }, [zoomLevel]);
+1099-
+1100-  // --- Pinch/Wheel to Zoom ---
+1101:  useEffect(() => {
+1102-    const container = timelineScrollRef.current;
+1103-    if (!container) return;
+1104-
+1105-    let initialDist: number | null = null;
+1106-    let initialZoom = 1;
+1107-
+1108-    const handleTouchStart = (e: TouchEvent) => {
+1109-      if (e.touches.length === 2) {
+1110-        initialDist = Math.hypot(
+1111-          e.touches[0].clientX - e.touches[1].clientX,
+1112-          e.touches[0].clientY - e.touches[1].clientY,
+1113-        );
+1114-        initialZoom = currentZoomLevelRef.current;
+1115-      }
+1116-    };
+1117-
+1118-    const handleTouchMove = (e: TouchEvent) => {
+1119-      if (e.touches.length === 2 && initialDist !== null) {
+1120-        e.preventDefault(); // prevent native scroll
+1121-        const dist = Math.hypot(
+1122-          e.touches[0].clientX - e.touches[1].clientX,
+1123-          e.touches[0].clientY - e.touches[1].clientY,
+1124-        );
+1125-        const scale = dist / initialDist;
+1126-        setZoomLevel(Math.min(Math.max(0.2, initialZoom * scale), 10));
+--
+4237:  useEffect(() => {
+4238-    const video = videoRef.current;
+4239-    if (!video) return;
+4240-
+4241-    video.volume = typeof clip.volume === "number" ? clip.volume / 100 : 1;
+4242-    video.playbackRate = clip.speed || 1;
+4243-
+4244-    const targetTime =
+4245-      (currentTime - clip.leftSeconds) * (clip.speed || 1) +
+4246-      clip.trimStartSeconds;
+4247-
+4248-    if (!isPlaying) {
+4249-      if (Math.abs(video.currentTime - targetTime) > 0.1) {
+4250-        video.currentTime = targetTime;
+4251-      }
+4252-      if (!video.paused) video.pause();
+4253-    } else {
+4254-      if (Math.abs(video.currentTime - targetTime) > 0.5) {
+4255-        video.currentTime = targetTime;
+4256-      }
+4257-      if (video.paused) {
+4258-        const playPromise = video.play();
+4259-        if (playPromise !== undefined) {
+4260-          playPromise.catch((e) => {
+4261-            if (e.name !== "AbortError") console.error("Video play failed", e);
+4262-          });
+--
+4306:  useEffect(() => {
+4307-    const audio = audioRef.current;
+4308-    if (!audio) return;
+4309-
+4310-    audio.volume = typeof clip.volume === "number" ? clip.volume / 100 : 1;
+4311-    audio.playbackRate = clip.speed || 1;
+4312-
+4313-    const targetTime =
+4314-      (currentTime - clip.leftSeconds) * (clip.speed || 1) +
+4315-      clip.trimStartSeconds;
+4316-
+4317-    if (!isPlaying) {
+4318-      if (Math.abs(audio.currentTime - targetTime) > 0.1) {
+4319-        audio.currentTime = targetTime;
+4320-      }
+4321-      if (!audio.paused) audio.pause();
+4322-    } else {
+4323-      if (Math.abs(audio.currentTime - targetTime) > 0.5) {
+4324-        audio.currentTime = targetTime;
+4325-      }
+4326-      if (audio.paused) {
+4327-        const playPromise = audio.play();
+4328-        if (playPromise !== undefined) {
+4329-          playPromise.catch((e) => {
+4330-            if (e.name !== "AbortError") console.error("Audio play failed", e);
+4331-          });

@@ -1,0 +1,50 @@
+2:  useState,
+85:  const [currentScreen, setCurrentScreen] = useState<Screen>("home");
+86:  const [toastMessage, setToastMessage] = useState<string | null>(null);
+87:  const [isRecording, setIsRecording] = useState(false);
+88:  const [hasMicPermission, setHasMicPermission] = useState(false);
+89:  const [voiceoverLayerId, setVoiceoverLayerId] = useState<string | null>(null);
+90:  const [projectMenuOpenId, setProjectMenuOpenId] = useState<string | null>(
+93:  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
+95:  const [flowBarOrder, setFlowBarOrder] = useState<string[]>(() => {
+104:  const [projects, setProjects] = useState<Project[]>(() => {
+125:  const [appScale, setAppScale] = useState(1);
+152:  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+153:  const [isCreatingProject, setIsCreatingProject] = useState(false);
+154:  const [selectedRatioTransition, setSelectedRatioTransition] = useState<
+157:  const [focusedRatio, setFocusedRatio] = useState<string>("9:16");
+158:  const [customRatioW, setCustomRatioW] = useState("1080");
+159:  const [customRatioH, setCustomRatioH] = useState("1920");
+163:    useState<string>("9:16");
+164:  const [layers, setLayers] = useState<Layer[]>([]);
+165:  const [clips, setClips] = useState<Clip[]>([]);
+166:  const [currentTime, setCurrentTime] = useState(0);
+171:  const [isPlaying, setIsPlaying] = useState(false);
+172:  const [zoomLevel, setZoomLevel] = useState(1); // 1 = normal, 2 = zoomed in
+173:  const [playheadX, setPlayheadX] = useState(150);
+175:  const [activeExpandedMenu, setActiveExpandedMenu] = useState<string | null>(
+178:  const [layerMenuOpenId, setLayerMenuOpenId] = useState<string | null>(null);
+179:  const [draggingLayerId, setDraggingLayerId] = useState<string | null>(null);
+181:  const [applyVolumeToAll, setApplyVolumeToAll] = useState(false);
+182:  const [clipVolume, setClipVolume] = useState(100);
+183:  const [clipSpeed, setClipSpeed] = useState(1);
+184:  const [smoothProcessingProgress, setSmoothProcessingProgress] = useState<
+187:  const [selectedClipIds, setSelectedClipIds] = useState<string[]>([]);
+190:  const [marquee, setMarquee] = useState<{ startX: number, startY: number, currentX: number, currentY: number } | null>(null);
+191:  const [showKeyframeGraph, setShowKeyframeGraph] = useState(false);
+265:  const [isExportExpanded, setIsExportExpanded] = useState(false);
+266:  const [pillPopup, setPillPopup] = useState<{ message: string; progress?: number; type: 'info' | 'loading' } | null>(null);
+267:  const [isRatioExpanded, setIsRatioExpanded] = useState(false);
+268:  const [exportResolution, setExportResolution] = useState("4K");
+269:  const [exportFps, setExportFps] = useState("30");
+270:  const [exportBitrate, setExportBitrate] = useState("High");
+271:  const [exportOpticalFlow, setExportOpticalFlow] = useState(true);
+272:  const [erroredClips, setErroredClips] = useState<Set<string>>(new Set());
+283:  const [copiedClip, setCopiedClip] = useState<Clip | null>(null);
+284:  const [pastePopup, setPastePopup] = useState<{
+293:  const [history, setHistory] = useState<{ layers: Layer[]; clips: Clip[] }[]>([
+296:  const [historyIndex, setHistoryIndex] = useState(0);
+405:  const [isExporting, setIsExporting] = useState(false);
+406:  const [exportProgress, setExportProgress] = useState(0);
+407:  const [exportedVideoUrl, setExportedVideoUrl] = useState<string | null>(null);
+408:  const [exportedVideoBlob, setExportedVideoBlob] = useState<Blob | null>(null);

@@ -1,0 +1,31 @@
+workflows:
+  android-build:
+    name: Android Build (Capacitor)
+    max_build_duration: 120
+    environment:
+      node: 20
+      java: 17
+    scripts:
+      - name: Install NPM dependencies
+        script: |
+          rm -rf package-lock.json node_modules
+          npm install
+      - name: Install Capacitor Android package
+        script: npm install @capacitor/android@5
+      - name: Build React App
+        script: npm run build
+      - name: Sync or Add Android Platform
+        script: |
+          if [ -d "android" ]; then
+            npx cap sync android
+          else
+            npx cap add android
+          fi
+      - name: Build Android Release
+        script: |
+          cd android
+          gradle wrapper
+          chmod +x gradlew
+          ./gradlew assembleDebug
+    artifacts:
+      - android/app/build/outputs/**/*.apk

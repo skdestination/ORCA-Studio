@@ -1,0 +1,1 @@
+import{W as o}from"./index-0KA7K2PV.js";class m extends o{async echo(e){return console.log("ECHO",e),e}async executeFFmpegCommand(e){return console.warn("The executeFFmpegCommand method is not implemented for the web platform."),{returnCode:-1}}}export{m as FFmpegKitPluginWeb};

@@ -1,0 +1,135 @@
+1-import React, {
+2-  useState,
+3-  useRef,
+4:  useEffect,
+5-  useMemo,
+6-  useCallback,
+7-} from "react";
+8-import {
+9-  Play,
+--
+252-      },
+253-    ];
+254-  });
+255-  
+256-  const [appScale, setAppScale] = useState(1);
+257:  useEffect(() => {
+258-    try {
+259-      const savedScale = localStorage.getItem("ai_studio_app_scale");
+260-      if (savedScale && !isNaN(parseFloat(savedScale))) {
+261-        setAppScale(parseFloat(savedScale));
+262-      }
+--
+352-    { layers: [], clips: [] },
+353-  ]);
+354-  const [historyIndex, setHistoryIndex] = useState(0);
+355-  const isUndoRedoAction = useRef(false);
+356-
+357:  useEffect(() => {
+358-    if (selectedClipId) {
+359-      const clip = clips.find((c) => c.id === selectedClipId);
+360-      if (clip) {
+361-        setClipVolume(prev => {
+362-          const val = typeof clip.volume === "number" ? clip.volume : 100;
+--
+364-        });
+365-      }
+366-    }
+367-  }, [selectedClipId, clips]);
+368-
+369:  useEffect(() => {
+370-    // Intentional omission of empty layer cleanup so users can add empty layers
+371-  }, [clips, layers]);
+372-
+373:  useEffect(() => {
+374-    // Identify and clean up any text clips that are empty/whitespace only and are not currently active/selected
+375-    setClips((prevClips) => {
+376-      const emptyTextClips = prevClips.filter(
+377-        (c) =>
+378-          c.type === "text" &&
+--
+397-      }
+398-      return prevClips;
+399-    });
+400-  }, [selectedClipId, activeExpandedMenu]);
+401-
+402:  useEffect(() => {
+403-    if (isUndoRedoAction.current) {
+404-      isUndoRedoAction.current = false;
+405-      return;
+406-    }
+407-    const timeout = setTimeout(() => {
+--
+451-  // Real-time synchronization
+452-  const isPlayingRef = useRef(isPlaying);
+453-  // Important: timeline zoom level affects pixels per second
+454-  const pixelsPerSecond = BASE_PIXELS_PER_SECOND * zoomLevel;
+455-
+456:  useEffect(() => {
+457-    isPlayingRef.current = isPlaying;
+458-  }, [isPlaying]);
+459-
+460:  useEffect(() => {
+461-    const playLoop = (time: number) => {
+462-      if (lastTimeRef.current === undefined) lastTimeRef.current = time;
+463-      const deltaTime = (time - lastTimeRef.current) / 1000;
+464-      lastTimeRef.current = time;
+465-
+--
+735-    setZoomLevel(1);
+736-    setCurrentScreen("editor");
+737-  };
+738-
+739-  // Auto-save
+740:  useEffect(() => {
+741-    if (currentScreen === "editor" && activeProjectId) {
+742-      setProjects((prev) => {
+743-        let hasChanges = false;
+744-        const updated = prev.map((p) => {
+745-          if (p.id === activeProjectId) {
+--
+1217-    window.addEventListener("pointerup", onPointerUp);
+1218-    window.addEventListener("pointercancel", onPointerUp);
+1219-  };
+1220-
+1221-  const currentPixelsPerSecondRef = useRef(pixelsPerSecond);
+1222:  useEffect(() => {
+1223-    currentPixelsPerSecondRef.current = pixelsPerSecond;
+1224-  }, [pixelsPerSecond]);
+1225-
+1226-  const currentZoomLevelRef = useRef(zoomLevel);
+1227:  useEffect(() => {
+1228-    currentZoomLevelRef.current = zoomLevel;
+1229-  }, [zoomLevel]);
+1230-
+1231-  // --- Pinch/Wheel to Zoom ---
+1232:  useEffect(() => {
+1233-    const container = timelineScrollRef.current;
+1234-    if (!container) return;
+1235-
+1236-    let initialDist: number | null = null;
+1237-    let initialZoom = 1;
+--
+4681-  onPointerDown?: (e: React.PointerEvent) => void;
+4682-  onError?: () => void;
+4683-}) {
+4684-  const videoRef = useRef<HTMLVideoElement>(null);
+4685-
+4686:  useEffect(() => {
+4687-    const video = videoRef.current;
+4688-    if (!video) return;
+4689-
+4690-    video.volume = typeof clip.volume === "number" ? clip.volume / 100 : 1;
+4691-    video.playbackRate = clip.speed || 1;
+--
+4750-  isMuted: boolean;
+4751-  onError?: () => void;
+4752-}) {
+4753-  const audioRef = useRef<HTMLAudioElement>(null);
+4754-
+4755:  useEffect(() => {
+4756-    const audio = audioRef.current;
+4757-    if (!audio) return;
+4758-
+4759-    audio.volume = typeof clip.volume === "number" ? clip.volume / 100 : 1;
+4760-    audio.playbackRate = clip.speed || 1;
