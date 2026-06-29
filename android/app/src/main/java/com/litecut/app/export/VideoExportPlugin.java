@@ -1,6 +1,8 @@
 package com.litecut.app.export;
 
 import android.graphics.SurfaceTexture;
+import android.media.MediaCodec;
+import android.media.MediaFormat;
 import android.opengl.EGLSurface;
 import android.opengl.GLES20;
 import android.view.Surface;
@@ -9,6 +11,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import java.nio.ByteBuffer;
 
 @CapacitorPlugin(name = "VideoExport")
 public class VideoExportPlugin extends Plugin {
