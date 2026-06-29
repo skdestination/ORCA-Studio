@@ -117,6 +117,9 @@ export type Clip = {
   maskWidth?: number;
   maskHeight?: number;
   maskRoundness?: number;
+  maskMediaTranslateX?: number;
+  maskMediaTranslateY?: number;
+  maskMediaScale?: number;
 
   cropRatio?: "1:1" | "16:9" | "9:16" | "4:3" | "free" | null;
   cropRect?: { top: number, right: number, bottom: number, left: number };
@@ -130,7 +133,31 @@ export type Clip = {
   stabilizationMode?: "standard" | "active" | "locked" | "off";
   stabilizationStrength?: number;
   compareStabilization?: boolean;
+  isReversed?: boolean;
   thumbnail?: string;
+  motionIn?: "None" | "Fade In" | "Slide In" | "Zoom In" | "Bounce In";
+  motionOut?: "None" | "Fade Out" | "Slide Out" | "Zoom Out" | "Bounce Out";
+  motionInBlurStrength?: number;
+  motionInBlurSpeed?: number;
+  motionInBlurApplied?: boolean;
+  motionOutBlurStrength?: number;
+  motionOutBlurApplied?: boolean;
+  animationIn?: string;
+  animationOut?: string;
+  animationOverall?: string;
+
+  // Text Styling
+  letterSpacing?: number;
+  lineHeight?: number;
+  strokeWidth?: number;
+  strokeColor?: string;
+  glowColor?: string;
+  glowRadius?: number;
+  shadowColor?: string;
+  shadowBlur?: number;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  textShadow?: string;
 };
 
 export type Project = {

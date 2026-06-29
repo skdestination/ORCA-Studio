@@ -35,6 +35,7 @@ import {
   Move,
   Maximize,
   RotateCw,
+  RotateCcw,
   Wand2,
   Activity,
   Blend,
@@ -80,13 +81,23 @@ import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Media } from "@capacitor-community/media";
 import { processSmoothSlowMoBrowser } from "./lib/opticalFlow";
 import { SpeedCurveEditor } from "./SpeedCurveEditor";
-import { TextEditorMenu } from "./TextEditorMenu";
+import { TextEditorMenu } from "./components/TextEditorMenu";
+import { TextRenderer } from "./components/TextRenderer";
 import { ExportOverlay } from "./components/ExportOverlay";
 
 import { Screen, Layer, Keyframe, Clip, Project } from "./types";
 import { getInterpolatedProps } from "./lib/utils";
 import { VideoRenderer, AudioRenderer } from "./components/Renderers";
 import { MinusIcon, CompactRulerControl, SpeedRulerControl, ScaleRulerControl } from "./components/Controls";
+import { VolumePanel } from "./components/VolumePanel";
+import { BlendPanel } from "./components/BlendPanel";
+import { AdjustPanel } from "./components/AdjustPanel";
+import { MovePanel } from "./components/MovePanel";
+import { StabilizePanel } from "./components/StabilizePanel";
+import { MotionPanel } from "./components/MotionPanel";
+import { AnimationPanel } from "./components/AnimationPanel";
+import { SettingsPanel } from "./components/SettingsPanel";
+import { HomePanel } from "./components/HomePanel";
 
 // --- Mock Data & Constants ---
 const BASE_PIXELS_PER_SECOND = 100;
@@ -98,10 +109,13 @@ export const DEFAULT_FLOW_BAR_ORDER = [
   'crop',
   'adjust',
   'speed',
+  'reverse',
   'stabilize',
   'copy',
   'extract-audio',
   'move',
+  'motion',
+  'animation',
   'magic',
   'activity',
   'mask',
@@ -113,37 +127,6 @@ import { MaskControlOverlay } from "./components/MaskControlOverlay";
 import { CropControlOverlay } from "./components/CropControlOverlay";
 
 import { getFile } from "./lib/db";
-
-function ProjectCoverImage({ p }: { p: Project }) {
-  const [dbSrc, setDbSrc] = useState<string | null>(null);
-
-  useEffect(() => {
-    let objectUrl: string | null = null;
-    if (p.thumbnailFileId) {
-      getFile(p.thumbnailFileId).then(blob => {
-        if (blob) {
-          objectUrl = URL.createObjectURL(blob);
-          setDbSrc(objectUrl);
-        }
-      }).catch(console.error);
-    }
-    
-    return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [p.thumbnailFileId]);
-
-  return (
-    <img
-      src={dbSrc || p.thumbnail || undefined}
-      alt=""
-      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-      referrerPolicy="no-referrer"
-    />
-  );
-}
 
 const getBestSupportedVideoType = () => {
   const isSafari = typeof navigator !== "undefined" && /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -909,7 +892,16 @@ export default function App() {
   const [flowBarOrder, setFlowBarOrder] = useState<string[]>(() => {
     try {
       const saved = localStorage.getItem("ai_studio_video_flowbar_order");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (!parsed.includes('motion')) {
+          parsed.push('motion');
+        }
+        if (!parsed.includes('animation')) {
+          parsed.push('animation');
+        }
+        return parsed;
+      }
     } catch (e) {}
     return DEFAULT_FLOW_BAR_ORDER;
   });
@@ -1198,150 +1190,224 @@ export default function App() {
     return displayItems;
   }, [currentMediaFolder, selectedMediaTab, deviceMedias]);
 
-  const fetchRealDeviceMedia = async () => {
-    if (!Capacitor.isNativePlatform()) {
-      setIsMediaPermissionGranted(true);
-      return;
-    }
-    setIsMediaLoading(true);
-    let scannedList: any[] = [];
-    let usedFilesystemScanner = false;
-
-    try {
-      const mediaAny = Media as any;
-      if (typeof mediaAny.checkPermissions === "function") {
+  // Check media permission silently on app start and run a background scan if already granted
+  useEffect(() => {
+    const checkInitialMediaPermission = async () => {
+      if (Capacitor.isNativePlatform()) {
         try {
-          const check = await mediaAny.checkPermissions();
-          const hasLegacy = check.publicStorage === "granted";
-          const hasModern = check.publicStorage13Plus === "granted";
-          
-          if (!hasLegacy && !hasModern) {
-            if (typeof mediaAny.requestPermissions === "function") {
-              const req = await mediaAny.requestPermissions();
-              const reqLegacy = req.publicStorage === "granted";
-              const reqModern = req.publicStorage13Plus === "granted";
-              if (!reqLegacy && !reqModern) {
-                showToast("Gallery storage permission not granted. Standard picker will be used.");
-              }
+          const mediaAny = Media as any;
+          if (typeof mediaAny.checkPermissions === "function") {
+            const check = await mediaAny.checkPermissions();
+            const hasLegacy = check.publicStorage === "granted";
+            const hasModern = check.publicStorage13Plus === "granted";
+            if (hasLegacy || hasModern) {
+              setIsMediaPermissionGranted(true);
+              // Silently fetch media list in the background so it's ready on click!
+              setTimeout(async () => {
+                try {
+                  const result = await Media.getMedias();
+                  if (result && result.medias && result.medias.length > 0) {
+                    const scannedList = result.medias.map((item: any) => {
+                      const convertedUrl = Capacitor.convertFileSrc(item.path || item.identifier);
+                      return {
+                        name: item.name || "Media File",
+                        path: item.path || item.identifier,
+                        url: convertedUrl,
+                        type: item.type || "video",
+                        folder: item.folder || "Camera Roll",
+                        duration: item.duration || 10,
+                        thumbnail: item.type === "video" ? undefined : convertedUrl,
+                      };
+                    });
+                    if (scannedList.length > 0) {
+                      setDeviceMedias(scannedList);
+                    }
+                  }
+                } catch (scanErr) {
+                  console.warn("Startup silent media scan skipped:", scanErr);
+                }
+              }, 100);
             }
           }
-        } catch (permErr) {
-          console.warn("Storage permission request failed, using fallback picker", permErr);
+        } catch (err) {
+          console.warn("Silent initial permission check failed:", err);
         }
+      } else {
+        setIsMediaPermissionGranted(true);
       }
-      setIsMediaPermissionGranted(true);
+    };
+    checkInitialMediaPermission();
+  }, []);
+
+  const fetchRealDeviceMedia = async () => {
+    // Immediately grant permission in UI state so the panel opens and loads pre-bundled assets instantly!
+    setIsMediaPermissionGranted(true);
+
+    if (!Capacitor.isNativePlatform()) {
+      return;
+    }
+
+    // If we already have scanned media, return instantly so opening is 100% immediate!
+    if (deviceMedias.length > 0) {
+      return;
+    }
+
+    setIsMediaLoading(true);
+
+    // Run the scanning process asynchronously in the background so the UI is completely responsive!
+    setTimeout(async () => {
+      let scannedList: any[] = [];
+      let usedFilesystemScanner = false;
 
       try {
-        const result = await Media.getMedias();
-        if (result && result.medias && result.medias.length > 0) {
-          scannedList = result.medias.map((item: any) => {
-            const convertedUrl = Capacitor.convertFileSrc(item.path || item.identifier);
-            return {
-              name: item.name || "Media File",
-              path: item.path || item.identifier,
-              url: convertedUrl,
-              type: item.type || "video",
-              folder: item.folder || "Camera Roll",
-              duration: item.duration || 10,
-              thumbnail: item.type === "video" ? undefined : convertedUrl,
-            };
-          });
-        } else {
-          // If empty, let's trigger the filesystem scanner fallback
+        const mediaAny = Media as any;
+        if (typeof mediaAny.checkPermissions === "function") {
+          try {
+            const check = await mediaAny.checkPermissions();
+            const hasLegacy = check.publicStorage === "granted";
+            const hasModern = check.publicStorage13Plus === "granted";
+            
+            if (!hasLegacy && !hasModern) {
+              if (typeof mediaAny.requestPermissions === "function") {
+                const req = await mediaAny.requestPermissions();
+                const reqLegacy = req.publicStorage === "granted";
+                const reqModern = req.publicStorage13Plus === "granted";
+                if (!reqLegacy && !reqModern) {
+                  showToast("Gallery storage permission not granted. Standard picker will be used.");
+                }
+              }
+            }
+          } catch (permErr) {
+            console.warn("Storage permission request failed, using fallback picker", permErr);
+          }
+        }
+
+        try {
+          const result = await Media.getMedias();
+          if (result && result.medias && result.medias.length > 0) {
+            scannedList = result.medias.map((item: any) => {
+              const convertedUrl = Capacitor.convertFileSrc(item.path || item.identifier);
+              return {
+                name: item.name || "Media File",
+                path: item.path || item.identifier,
+                url: convertedUrl,
+                type: item.type || "video",
+                folder: item.folder || "Camera Roll",
+                duration: item.duration || 10,
+                thumbnail: item.type === "video" ? undefined : convertedUrl,
+              };
+            });
+          } else {
+            usedFilesystemScanner = true;
+          }
+        } catch (scanErr) {
+          console.warn("System background scanner bypassed. Standard API unimplemented or failed, falling back to Filesystem scanner.", scanErr);
           usedFilesystemScanner = true;
         }
-      } catch (scanErr) {
-        console.warn("System background scanner bypassed. Standard API unimplemented or failed, falling back to Filesystem scanner.", scanErr);
-        usedFilesystemScanner = true;
-      }
 
-      if (usedFilesystemScanner) {
-        try {
-          const fsPermissions = await Filesystem.checkPermissions();
-          if (fsPermissions.publicStorage !== 'granted') {
-            await Filesystem.requestPermissions();
-          }
-        } catch (fsPermErr) {
-          console.warn("Filesystem permission request failed or skipped:", fsPermErr);
-        }
-
-        const directoriesToScan = [
-          { name: "DCIM/Camera", path: "DCIM/Camera", folder: "Camera Roll" },
-          { name: "DCIM", path: "DCIM", folder: "Camera Roll" },
-          { name: "Pictures", path: "Pictures", folder: "Screenshots" },
-          { name: "Movies", path: "Movies", folder: "Camera Roll" },
-          { name: "Download", path: "Download", folder: "Downloads" },
-          { name: "Music", path: "Music", folder: "Audio Recordings" }
-        ];
-
-        for (const dir of directoriesToScan) {
+        if (usedFilesystemScanner) {
           try {
-            const readResult = await Filesystem.readdir({
-              path: dir.path,
-              directory: Directory.ExternalStorage
-            });
+            const fsPermissions = await Filesystem.checkPermissions();
+            if (fsPermissions.publicStorage !== 'granted') {
+              await Filesystem.requestPermissions();
+            }
+          } catch (fsPermErr) {
+            console.warn("Filesystem permission request failed or skipped:", fsPermErr);
+          }
 
-            if (readResult && readResult.files) {
-              for (const fileItem of readResult.files) {
-                const fileName = typeof fileItem === 'string' ? fileItem : fileItem.name;
-                const filePath = typeof fileItem === 'string' ? `${dir.path}/${fileItem}` : ((fileItem as any).path || `${dir.path}/${fileItem.name}`);
-                const fileType = typeof fileItem === 'string' ? 'file' : fileItem.type;
+          const directoriesToScan = [
+            { name: "DCIM/Camera", path: "DCIM/Camera", folder: "Camera Roll" },
+            { name: "DCIM", path: "DCIM", folder: "Camera Roll" },
+            { name: "Pictures", path: "Pictures", folder: "Screenshots" },
+            { name: "Movies", path: "Movies", folder: "Camera Roll" },
+            { name: "Download", path: "Download", folder: "Downloads" },
+            { name: "Music", path: "Music", folder: "Audio Recordings" }
+          ];
 
-                if (fileType === 'directory') continue;
+          for (const dir of directoriesToScan) {
+            try {
+              const readResult = await Filesystem.readdir({
+                path: dir.path,
+                directory: Directory.ExternalStorage
+              });
 
-                const lowerName = fileName.toLowerCase();
-                let mediaType: "video" | "image" | "audio" | null = null;
+              if (readResult && readResult.files) {
+                const matchedFiles = [];
+                for (const fileItem of readResult.files) {
+                  // Limit directory scan to a maximum of 8 files per folder to make it ultra fast!
+                  if (matchedFiles.length >= 8) break;
 
-                if (lowerName.endsWith(".mp4") || lowerName.endsWith(".mov") || lowerName.endsWith(".3gp") || lowerName.endsWith(".webm") || lowerName.endsWith(".mkv")) {
-                  mediaType = "video";
-                } else if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".png") || lowerName.endsWith(".gif") || lowerName.endsWith(".webp") || lowerName.endsWith(".bmp")) {
-                  mediaType = "image";
-                } else if (lowerName.endsWith(".mp3") || lowerName.endsWith(".wav") || lowerName.endsWith(".ogg") || lowerName.endsWith(".aac") || lowerName.endsWith(".m4a")) {
-                  mediaType = "audio";
+                  const fileName = typeof fileItem === 'string' ? fileItem : fileItem.name;
+                  const filePath = typeof fileItem === 'string' ? `${dir.path}/${fileItem}` : ((fileItem as any).path || `${dir.path}/${fileItem.name}`);
+                  const fileType = typeof fileItem === 'string' ? 'file' : fileItem.type;
+
+                  if (fileType === 'directory') continue;
+
+                  const lowerName = fileName.toLowerCase();
+                  let mediaType: "video" | "image" | "audio" | null = null;
+
+                  if (lowerName.endsWith(".mp4") || lowerName.endsWith(".mov") || lowerName.endsWith(".3gp") || lowerName.endsWith(".webm") || lowerName.endsWith(".mkv")) {
+                    mediaType = "video";
+                  } else if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") || lowerName.endsWith(".png") || lowerName.endsWith(".gif") || lowerName.endsWith(".webp") || lowerName.endsWith(".bmp")) {
+                    mediaType = "image";
+                  } else if (lowerName.endsWith(".mp3") || lowerName.endsWith(".wav") || lowerName.endsWith(".ogg") || lowerName.endsWith(".aac") || lowerName.endsWith(".m4a")) {
+                    mediaType = "audio";
+                  }
+
+                  if (mediaType) {
+                    matchedFiles.push({ fileName, filePath, mediaType, folder: dir.folder });
+                  }
                 }
 
-                if (mediaType) {
-                  try {
-                    const uriResult = await Filesystem.getUri({
-                      path: filePath,
-                      directory: Directory.ExternalStorage
-                    });
-                    const convertedUrl = Capacitor.convertFileSrc(uriResult.uri);
+                // Fetch URIs concurrently in parallel to prevent UI freeze and optimize speed 10x!
+                if (matchedFiles.length > 0) {
+                  const uriPromises = matchedFiles.map(async (file) => {
+                    try {
+                      const uriResult = await Filesystem.getUri({
+                        path: file.filePath,
+                        directory: Directory.ExternalStorage
+                      });
+                      const convertedUrl = Capacitor.convertFileSrc(uriResult.uri);
+                      return {
+                        name: file.fileName,
+                        path: uriResult.uri,
+                        url: convertedUrl,
+                        type: file.mediaType,
+                        folder: file.folder,
+                        duration: file.mediaType === "audio" ? 180 : 10,
+                        thumbnail: file.mediaType === "image" ? convertedUrl : undefined,
+                      };
+                    } catch (uriErr) {
+                      console.warn(`Could not get URI for ${file.filePath}:`, uriErr);
+                      return null;
+                    }
+                  });
 
-                    scannedList.push({
-                      name: fileName,
-                      path: uriResult.uri,
-                      url: convertedUrl,
-                      type: mediaType,
-                      folder: dir.folder,
-                      duration: mediaType === "audio" ? 180 : 10,
-                      thumbnail: mediaType === "image" ? convertedUrl : undefined,
-                    });
-                  } catch (uriErr) {
-                    console.warn(`Could not get URI for ${filePath}:`, uriErr);
+                  const resolvedFiles = await Promise.all(uriPromises);
+                  for (const rf of resolvedFiles) {
+                    if (rf) scannedList.push(rf);
                   }
                 }
               }
+            } catch (rErr) {
+              console.warn(`Filesystem scan of ${dir.path} skipped or empty:`, rErr);
             }
-          } catch (rErr) {
-            console.warn(`Filesystem scan of ${dir.path} skipped or empty:`, rErr);
           }
         }
-      }
 
-      if (scannedList.length > 0) {
-        setDeviceMedias((prev) => {
-          const existingPaths = new Set(prev.map(p => p.path));
-          const nonDupScanned = scannedList.filter((item: any) => !existingPaths.has(item.path));
-          return [...prev, ...nonDupScanned];
-        });
+        if (scannedList.length > 0) {
+          setDeviceMedias((prev) => {
+            const existingPaths = new Set(prev.map(p => p.path));
+            const nonDupScanned = scannedList.filter((item: any) => !existingPaths.has(item.path));
+            return [...prev, ...nonDupScanned];
+          });
+        }
+      } catch (err) {
+        console.error("Local storage scanner failed:", err);
+      } finally {
+        setIsMediaLoading(false);
       }
-    } catch (err) {
-      console.error("Local storage scanner failed:", err);
-      setIsMediaPermissionGranted(true);
-    } finally {
-      setIsMediaLoading(false);
-    }
+    }, 0);
   };
 
   useEffect(() => {
@@ -1771,7 +1837,8 @@ export default function App() {
   const isBetweenKeyframes = isBetweenVolumeKeyframes || isBetweenLayoutKeyframes;
 
   const [isExportExpanded, setIsExportExpanded] = useState(false);
-  const [pillPopup, setPillPopup] = useState<{ message: string; progress?: number; type: 'info' | 'loading' } | null>(null);
+  const [pillPopup, setPillPopup] = useState<{ message: string; progress?: number; type: 'info' | 'loading' | 'error' } | null>(null);
+  const [unsupportedFileDetails, setUnsupportedFileDetails] = useState<{ name: string; size: number; type: string } | null>(null);
   const [isRatioExpanded, setIsRatioExpanded] = useState(false);
   const [exportResolution, setExportResolution] = useState("4K");
   const [exportFps, setExportFps] = useState("30");
@@ -1942,6 +2009,8 @@ export default function App() {
   // Real-time synchronization
   const isPlayingRef = useRef(isPlaying);
   const isRecordingRef = useRef(isRecording);
+  const isInstantPreviewingRef = useRef(false);
+  const previewEndTargetTimeRef = useRef<number | null>(null);
   // Important: timeline zoom level affects pixels per second
   const pixelsPerSecond = BASE_PIXELS_PER_SECOND * zoomLevel;
 
@@ -1956,6 +2025,13 @@ export default function App() {
     isPlayingRef.current = isPlaying;
     if (isPlaying) {
       lastTimeRef.current = undefined;
+      if (!isInstantPreviewingRef.current) {
+        previewEndTargetTimeRef.current = null;
+      }
+    } else {
+      if (!isInstantPreviewingRef.current) {
+        previewEndTargetTimeRef.current = null;
+      }
     }
   }, [isPlaying]);
 
@@ -1975,6 +2051,23 @@ export default function App() {
       if (isPlayingRef.current || isRecordingRef.current) {
         setCurrentTime((prev) => {
           const next = prev + deltaTime;
+
+          if (previewEndTargetTimeRef.current !== null && next >= previewEndTargetTimeRef.current) {
+            const capped = previewEndTargetTimeRef.current;
+            previewEndTargetTimeRef.current = null;
+            isInstantPreviewingRef.current = false;
+
+            setTimeout(() => {
+              setIsPlaying(false);
+            }, 0);
+
+            if (timelineScrollRef.current) {
+              const container = timelineScrollRef.current;
+              container.scrollLeft = Math.max(0, capped * pixelsPerSecond);
+            }
+            return capped;
+          }
+
           if (timelineScrollRef.current) {
             const container = timelineScrollRef.current;
             container.scrollLeft = Math.max(0, next * pixelsPerSecond);
@@ -2122,6 +2215,37 @@ export default function App() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const playInstantPreview = (clipId: string, type: "in" | "out" | "overall" | "motionIn" | "motionOut") => {
+    const targetClip = clips.find((c) => c.id === clipId);
+    if (!targetClip) return;
+
+    isInstantPreviewingRef.current = true;
+    setIsPlaying(false);
+
+    setTimeout(() => {
+      let targetTime = targetClip.leftSeconds;
+      const motionDuration = Math.min(0.6, targetClip.durationSeconds / 2);
+
+      let endTime = targetClip.leftSeconds + motionDuration;
+      if (type === "out" || type === "motionOut") {
+        const offset = Math.min(1.0, targetClip.durationSeconds);
+        targetTime = Math.max(targetClip.leftSeconds, targetClip.leftSeconds + targetClip.durationSeconds - offset);
+        endTime = targetClip.leftSeconds + targetClip.durationSeconds;
+      } else if (type === "overall") {
+        targetTime = targetClip.leftSeconds;
+        endTime = targetClip.leftSeconds + Math.min(2.0, targetClip.durationSeconds);
+      } else {
+        targetTime = targetClip.leftSeconds;
+        endTime = targetClip.leftSeconds + motionDuration;
+      }
+
+      isInstantPreviewingRef.current = true;
+      previewEndTargetTimeRef.current = endTime;
+      setCurrentTime(targetTime);
+      setIsPlaying(true);
+    }, 50);
   };
 
   const startExport = async () => {
@@ -2282,7 +2406,17 @@ export default function App() {
           if (el && (el.tagName === "IMG" || el.tagName === "VIDEO")) {
             if (el.tagName === "VIDEO") {
                 const video = el as HTMLVideoElement;
-                const seekTime = Math.max(0, elapsed - clip.leftSeconds);
+                const effectiveSpeed = clip.opticalFlow ? 1 : (clip.speed || 1);
+                let effectiveTrimStart = clip.trimStartSeconds || 0;
+                if (clip.opticalFlow && clip.speed) {
+                    effectiveTrimStart = (clip.trimStartSeconds || 0) / clip.speed;
+                }
+                const totalSourceSpan = clip.durationSeconds * effectiveSpeed;
+                const seekTime = Math.max(0,
+                    clip.isReversed
+                        ? (effectiveTrimStart + totalSourceSpan - (elapsed - clip.leftSeconds) * effectiveSpeed)
+                        : (effectiveTrimStart + (elapsed - clip.leftSeconds) * effectiveSpeed)
+                );
                 if (Math.abs(video.currentTime - seekTime) > 0.1) {
                     video.currentTime = seekTime;
                 }
@@ -2837,7 +2971,7 @@ export default function App() {
       setPillPopup({ message: `Imported ${item.name} audio track`, type: "info" });
       setTimeout(() => setPillPopup(null), 2500);
     } else {
-      setPillPopup({ message: "Parsing video structures...", type: 'loading' });
+      setPillPopup({ message: "Importing video...", type: 'loading' });
       const video = document.createElement("video");
       video.preload = "metadata";
       video.onloadedmetadata = () => {
@@ -2932,69 +3066,66 @@ export default function App() {
     }
 
     if (type === "video" || type === "audio") {
-      try {
-        setPillPopup({ message: "Parsing video structures...", type: 'loading' });
-        const { loadVideoMetadata } = await import("./lib/opticalFlow");
-        const metadata = await loadVideoMetadata(file);
-        
-        setPillPopup({
-          message: `Loaded: ${metadata.width}x${metadata.height} @ ${Math.round(metadata.fps)} FPS`,
-          type: 'info'
-        });
-        setTimeout(() => setPillPopup(null), 3500);
-
-        addMediaClip(
-          id,
-          type,
-          src,
-          (metadata.durationMs / 1000) || 10,
-          startAtTime,
-          fileId,
-          metadata.width,
-          metadata.height,
-          metadata.fps
-        );
-        addToLibrary((metadata.durationMs / 1000) || 10);
-      } catch (metaErr) {
-        console.warn("Unified metadata load failed, using DOM fallback:", metaErr);
-        setPillPopup(null);
-        if (type === "video") {
-          const video = document.createElement("video");
-          video.preload = "metadata";
-          video.onloadedmetadata = () => {
-            addMediaClip(
-              id,
-              type,
-              src,
-              video.duration || 10,
-              startAtTime,
-              fileId,
-              video.videoWidth,
-              video.videoHeight,
-              30
-            );
-            addToLibrary(video.duration || 10);
-          };
-          video.src = src;
-        } else {
-          const audio = document.createElement("audio");
-          audio.preload = "metadata";
-          audio.onloadedmetadata = () => {
-            addMediaClip(
-              id,
-              type,
-              src,
-              audio.duration || 10,
-              startAtTime,
-              fileId,
-              undefined,
-              undefined,
-              30
-            );
-            addToLibrary(audio.duration || 10);
-          };
-          audio.src = src;
-        }
+      setPillPopup({ message: `Importing ${file.name}...`, type: 'loading' });
+      if (type === "video") {
+        const video = document.createElement("video");
+        video.preload = "metadata";
+        video.onloadedmetadata = () => {
+          addMediaClip(
+            id,
+            type,
+            src,
+            video.duration || 10,
+            startAtTime,
+            fileId,
+            video.videoWidth,
+            video.videoHeight,
+            30
+          );
+          addToLibrary(video.duration || 10);
+          setPillPopup({ message: `Loaded: ${video.videoWidth}x${video.videoHeight} @ 30 FPS`, type: 'info' });
+          setTimeout(() => setPillPopup(null), 2500);
+        };
+        video.onerror = () => {
+          console.error("Unsupported media format:", file.name);
+          setPillPopup({ message: `Unsupported media format: ${file.name}`, type: 'error' });
+          setUnsupportedFileDetails({ name: file.name, size: file.size, type: file.type });
+          setTimeout(() => setPillPopup(null), 4000);
+          // Delete from IndexedDB to avoid cluttering storage with unusable files
+          try {
+            import("./lib/db").then(({ deleteFile }) => deleteFile(fileId));
+          } catch (e) {}
+        };
+        video.src = src;
+      } else {
+        const audio = document.createElement("audio");
+        audio.preload = "metadata";
+        audio.onloadedmetadata = () => {
+          addMediaClip(
+            id,
+            type,
+            src,
+            audio.duration || 10,
+            startAtTime,
+            fileId,
+            undefined,
+            undefined,
+            30
+          );
+          addToLibrary(audio.duration || 10);
+          setPillPopup({ message: `Imported audio track: ${file.name}`, type: 'info' });
+          setTimeout(() => setPillPopup(null), 2500);
+        };
+        audio.onerror = () => {
+          console.error("Unsupported audio format:", file.name);
+          setPillPopup({ message: `Unsupported audio format: ${file.name}`, type: 'error' });
+          setUnsupportedFileDetails({ name: file.name, size: file.size, type: file.type });
+          setTimeout(() => setPillPopup(null), 4000);
+          try {
+            import("./lib/db").then(({ deleteFile }) => deleteFile(fileId));
+          } catch (e) {}
+        };
+        audio.src = src;
       }
     } else {
       if (type === "image") {
@@ -3713,6 +3844,10 @@ export default function App() {
     startMaskHeight?: number;
     startMaskPositionX?: number;
     startMaskPositionY?: number;
+    startMaskRoundness?: number;
+    startMaskMediaTranslateX?: number;
+    startMaskMediaTranslateY?: number;
+    startMaskMediaScale?: number;
   } | null>(null);
 
   const handlePreviewTouchStart = (e: React.TouchEvent) => {
@@ -3740,6 +3875,10 @@ export default function App() {
           startMaskHeight: clip.maskHeight ?? (clip.maskType === "half" ? 50 : 60),
           startMaskPositionX: clip.maskPositionX ?? 0.5,
           startMaskPositionY: clip.maskPositionY ?? 0.5,
+          startMaskRoundness: clip.maskRoundness ?? 15,
+          startMaskMediaTranslateX: clip.maskMediaTranslateX || 0,
+          startMaskMediaTranslateY: clip.maskMediaTranslateY || 0,
+          startMaskMediaScale: clip.maskMediaScale || 1,
         };
       }
     }
@@ -3766,54 +3905,85 @@ export default function App() {
         startDistance, 
         startScale, 
         activeClipId,
-        startMaskWidth,
-        startMaskHeight,
-        startMaskPositionX,
-        startMaskPositionY 
+        startMaskWidth = 60,
+        startMaskHeight = 60,
+        startMaskPositionX = 0.5,
+        startMaskPositionY = 0.5,
+        startMaskRoundness = 15
       } = previewTouchRef.current;
       
       const scaleRatio = currentDistance / startDistance;
+      const deltaX = (currentX - previewTouchRef.current.startX) / appScale;
+      const deltaY = (currentY - previewTouchRef.current.startY) / appScale;
+      const newScale = Math.max(0.1, Math.min(10.0, startScale * scaleRatio));
+      const newTranslateX = startTranslateX + deltaX;
+      const newTranslateY = startTranslateY + deltaY;
 
       if (clip && clip.maskType && clip.maskType !== "none") {
-        const previewEl = document.getElementById("preview-screen");
-        const rect = previewEl ? previewEl.getBoundingClientRect() : { width: 500, height: 300 };
-        const deltaPercentX = (currentX - previewTouchRef.current.startX) / (rect.width || 500);
-        const deltaPercentY = (currentY - previewTouchRef.current.startY) / (rect.height || 300);
+        if (activeExpandedMenu === "mask") {
+          // Find unscaled media dimensions in pixels
+          const mediaEl = document.querySelector(`#clip-media-${activeClipId}`)?.closest('.media-preview-container');
+          const mediaRect = mediaEl ? mediaEl.getBoundingClientRect() : null;
+          const mediaWidth = mediaRect ? mediaRect.width / (startScale * appScale) : 400;
+          const mediaHeight = mediaRect ? mediaRect.height / (startScale * appScale) : 400;
 
-        const newMaskPositionX = Math.max(0, Math.min(1, (startMaskPositionX ?? 0.5) + deltaPercentX));
-        const newMaskPositionY = Math.max(0, Math.min(1, (startMaskPositionY ?? 0.5) + deltaPercentY));
+          // Keep the mask centered exactly at its absolute screen coordinates by recalculating
+          // the relative maskPositionX, maskPositionY, maskWidth, maskHeight, and maskRoundness
+          // as the media translates and scales!
+          const screenCenterX = startTranslateX + startMaskPositionX * mediaWidth * startScale;
+          const screenCenterY = startTranslateY + startMaskPositionY * mediaHeight * startScale;
 
-        const startW = startMaskWidth ?? (clip.maskType === "half" ? 100 : 60);
-        const startH = startMaskHeight ?? (clip.maskType === "half" ? 50 : 60);
+          const newMaskPositionX = (screenCenterX - newTranslateX) / (mediaWidth * newScale);
+          const newMaskPositionY = (screenCenterY - newTranslateY) / (mediaHeight * newScale);
 
-        const newMaskWidth = Math.max(5, Math.min(100, Math.round(startW * scaleRatio)));
-        const newMaskHeight = Math.max(5, Math.min(100, Math.round(startH * scaleRatio)));
+          const newMaskWidth = Math.max(5, Math.min(100, (startMaskWidth * startScale) / newScale));
+          const newMaskHeight = Math.max(5, Math.min(100, (startMaskHeight * startScale) / newScale));
+          const newMaskRoundness = Math.max(0, Math.min(100, (startMaskRoundness * startScale) / newScale));
 
-        setClips((prev) => 
-          prev.map((c) =>
-            c.id === activeClipId
-              ? { 
-                  ...c, 
-                  maskPositionX: c.maskType === "half" ? 0.5 : newMaskPositionX,
-                  maskPositionY: newMaskPositionY,
-                  maskWidth: c.maskType === "half" ? 100 : newMaskWidth,
-                  maskHeight: newMaskHeight
-                }
-              : c
-          )
-        );
+          setClips((prev) => 
+            prev.map((c) =>
+              c.id === activeClipId
+                ? { 
+                    ...c, 
+                    translateX: newTranslateX,
+                    translateY: newTranslateY,
+                    scale: newScale,
+                    maskPositionX: newMaskPositionX,
+                    maskPositionY: newMaskPositionY,
+                    maskWidth: newMaskWidth,
+                    maskHeight: newMaskHeight,
+                    maskRoundness: newMaskRoundness,
+                    // Ensure the legacy inner media transform is reset so they are always in sync!
+                    maskMediaTranslateX: 0,
+                    maskMediaTranslateY: 0,
+                    maskMediaScale: 1
+                  }
+                : c
+            )
+          );
+        } else {
+          // Move the entire crop state together
+          setClips((prev) => 
+            prev.map((c) =>
+              c.id === activeClipId
+                ? { 
+                    ...c, 
+                    translateX: newTranslateX, 
+                    translateY: newTranslateY,
+                    scale: newScale
+                  }
+                : c
+            )
+          );
+        }
       } else {
-        const deltaX = (currentX - previewTouchRef.current.startX) / appScale;
-        const deltaY = (currentY - previewTouchRef.current.startY) / appScale;
-        const newScale = Math.max(0.1, Math.min(5.0, startScale * scaleRatio));
-
         setClips((prev) => 
           prev.map((c) =>
             c.id === activeClipId
               ? { 
                   ...c, 
-                  translateX: startTranslateX + deltaX, 
-                  translateY: startTranslateY + deltaY,
+                  translateX: newTranslateX, 
+                  translateY: newTranslateY,
                   scale: newScale
                 }
               : c
@@ -4632,8 +4802,11 @@ export default function App() {
       case 'crop': return 'Crop';
       case 'adjust': return 'Adjust';
       case 'speed': return 'Speed';
+      case 'reverse': return 'Reverse';
       case 'copy': return 'Copy';
       case 'move': return 'Move';
+      case 'motion': return 'Motion Bar';
+      case 'animation': return 'Animation';
       case 'magic': return 'Magic';
       case 'activity': return 'Blend & Opacity';
       case 'mask': return 'Mask Shape';
@@ -4642,646 +4815,48 @@ export default function App() {
   };
 
   const renderSettings = () => (
-  <div className="flex flex-col h-screen w-full bg-[#0c0c0e] overflow-hidden relative">
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 scrollbar-hide">
-        <div className="min-h-full flex flex-col pb-[150px]">
-          {/* Header */}
-          <div className="pt-32 pb-8 flex justify-between items-end mt-auto">
-            <h1 className="text-[52px] font-extrabold tracking-tight leading-none text-white">
-              Settings
-            </h1>
-            <button
-              className="w-10 h-10 rounded-full hover:bg-zinc-800 flex items-center justify-center transition-colors mb-2 text-zinc-400 hover:text-white"
-              onClick={() => setCurrentScreen("home")}
-            >
-              <ChevronLeft size={24} />
-            </button>
-          </div>
-
-          {/* Settings Content */}
-          <div className="flex flex-col gap-6 max-w-2xl mx-auto w-full mt-4">
-            <div className="bg-zinc-900 border border-white/5 rounded-3xl p-6">
-              <h3 className="text-white font-bold mb-4 text-xl">
-                Flow Bar Order
-              </h3>
-              <p className="text-sm text-zinc-400 mb-4 font-medium">Customize the order of tools in the floating action menu.</p>
-              <div className="flex flex-col gap-2">
-                {flowBarOrder.map((key, index) => (
-                  <div key={key} className="flex items-center justify-between bg-zinc-800/50 rounded-xl px-4 py-3 border border-white/5">
-                    <span className="text-zinc-200 font-medium text-sm">{getFlowBarItemLabel(key)}</span>
-                    <div className="flex items-center gap-1">
-                      <button 
-                        onClick={() => handleMoveFlowBarItem(index, 'up')}
-                        disabled={index === 0}
-                        className={`p-1.5 rounded-lg transition-colors ${index === 0 ? 'opacity-30' : 'hover:bg-zinc-700 text-zinc-400 hover:text-white'}`}
-                      >
-                        <ArrowUp size={16} />
-                      </button>
-                      <button 
-                        onClick={() => handleMoveFlowBarItem(index, 'down')}
-                        disabled={index === flowBarOrder.length - 1}
-                        className={`p-1.5 rounded-lg transition-colors ${index === flowBarOrder.length - 1 ? 'opacity-30' : 'hover:bg-zinc-700 text-zinc-400 hover:text-white'}`}
-                      >
-                        <ArrowDown size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-zinc-900 border border-white/5 rounded-3xl p-6">
-              <h3 className="text-white font-bold mb-4 text-xl">
-                App Layout Scale
-              </h3>
-              <p className="text-sm text-zinc-400 mb-6 font-medium">
-                Adjust the overall size of the app interface independently from your device display.
-              </p>
-              <div className="flex flex-col gap-4">
-                <div className="flex justify-between items-center px-1">
-                  <span className="text-zinc-300 font-medium text-sm">Scale</span>
-                  <span className="text-white font-mono font-bold">{Math.round(appScale * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.5"
-                  max="2"
-                  step="0.05"
-                  value={appScale}
-                  onChange={(e) => handleAppScaleChange(parseFloat(e.target.value))}
-                  className="w-full accent-white h-2 rounded-lg appearance-none bg-zinc-800"
-                />
-                <div className="flex justify-between w-full px-1 mt-1">
-                  <span className="text-[10px] text-zinc-500 font-bold">50%</span>
-                  <span className="text-[10px] text-zinc-500 font-bold">100%</span>
-                  <span className="text-[10px] text-zinc-500 font-bold">200%</span>
-                </div>
-                <button
-                  onClick={() => handleAppScaleChange(1)}
-                  className="mt-2 text-xs font-bold text-zinc-400 hover:text-white transition-colors bg-zinc-800/50 hover:bg-zinc-800 py-2 rounded-xl border border-white/5"
-                >
-                  Reset Default
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-zinc-900 border border-white/5 rounded-3xl p-6">
-              <h3 className="text-white font-bold mb-4 text-xl">
-                Timeline Snapping
-              </h3>
-              <p className="text-sm text-zinc-400 mb-6 font-medium">
-                Toggle interactive grid alignment and edge snapping for layers and timeline playhead.
-              </p>
-              <div className="flex items-center justify-between bg-zinc-800/50 rounded-xl px-4 py-3 border border-white/5">
-                <span className="text-zinc-200 font-medium text-sm">Enable Snapping</span>
-                <button
-                  type="button"
-                  onClick={() => handleToggleSnapping(!snappingEnabled)}
-                  className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors duration-200 outline-none ${snappingEnabled ? 'bg-indigo-600' : 'bg-zinc-700'}`}
-                >
-                  <div
-                    className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-transform duration-200 ${snappingEnabled ? 'translate-x-[24px]' : 'translate-x-[0px]'}`}
-                  />
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-zinc-900 border border-white/5 rounded-3xl p-6">
-              <h3 className="text-white font-bold mb-4 text-xl">
-                Export Preferences
-              </h3>
-              <div className="flex flex-col gap-5">
-                <div className="flex justify-between items-center">
-                  <span className="text-zinc-300 font-medium text-sm">
-                    Default Resolution
-                  </span>
-                  <select className="bg-zinc-800 text-white rounded-xl px-4 py-2 outline-none border border-white/10 text-sm focus:border-white/20 transition-colors">
-                    <option>1080p</option>
-                    <option>4K</option>
-                    <option>720p</option>
-                  </select>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-zinc-300 font-medium text-sm">
-                    Default FPS
-                  </span>
-                  <select className="bg-zinc-800 text-white rounded-xl px-4 py-2 outline-none border border-white/10 text-sm focus:border-white/20 transition-colors">
-                    <option>30 fps</option>
-                    <option>60 fps</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-zinc-900 border border-white/5 rounded-3xl p-6">
-              <h3 className="text-white font-bold mb-4 text-xl">App Info</h3>
-              <div className="flex flex-col gap-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-zinc-400 text-sm font-medium">
-                    Version
-                  </span>
-                  <span className="text-zinc-500 font-mono text-sm">1.0.0</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-zinc-400 text-sm font-medium">
-                    Developer
-                  </span>
-                  <span className="text-zinc-500 text-sm">AI Studio</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  
-);
+    <SettingsPanel
+      setCurrentScreen={setCurrentScreen}
+      flowBarOrder={flowBarOrder}
+      getFlowBarItemLabel={getFlowBarItemLabel}
+      handleMoveFlowBarItem={handleMoveFlowBarItem}
+      appScale={appScale}
+      handleAppScaleChange={handleAppScaleChange}
+      snappingEnabled={snappingEnabled}
+      handleToggleSnapping={handleToggleSnapping}
+    />
+  );
 
 const renderHome = () => {
-  // Sort the projects based on sortBy state
-  const sortedAndFilteredProjects = [...projects].sort((a, b) => {
-    if (sortBy === "name") {
-      return a.name.localeCompare(b.name);
-    } else if (sortBy === "duration") {
-      return a.duration.localeCompare(b.duration);
-    } else {
-      // default "recent" order: New Project first, then Summer Vacation, then Frosted, then any custom
-      const getWeight = (p: Project) => {
-        if (p.id === "new-p") return 3;
-        if (p.id === "1") return 2;
-        if (p.id === "frosted-p") return 1;
-        return 0;
-      };
-      const wA = getWeight(a);
-      const wB = getWeight(b);
-      if (wA !== wB) return wB - wA;
-      // fallback to custom index or ID
-      return b.id.localeCompare(a.id);
-    }
-  });
-
   return (
-    <div className="flex flex-col h-screen w-full bg-black overflow-hidden relative">
-      {/* Elegant Glowing Light Leak / Arch Effect at the top-right background */}
-      <div className="absolute top-[-100px] right-[-200px] w-[600px] h-[500px] bg-[radial-gradient(circle_at_center,rgba(164,198,217,0.12)_0%,transparent_65%)] rounded-full blur-[100px] pointer-events-none z-0" />
-      <div className="absolute top-[20%] right-[-150px] w-[500px] h-[400px] bg-[radial-gradient(circle_at_center,rgba(249,115,22,0.04)_0%,transparent_60%)] rounded-full blur-[80px] pointer-events-none z-0" />
-
-      {/* Main Scrollable Viewport */}
-      <div className="flex-1 overflow-y-auto px-4 sm:px-6 scrollbar-hide z-10">
-        <div className="min-h-full flex flex-col pb-[120px]">
-          
-          {/* Header Area with profile info and notification bell */}
-          <div className="pt-8 pb-4 flex justify-between items-center max-w-2xl mx-auto w-full">
-            <div className="flex items-center gap-3">
-              <div className="relative w-10 h-10 rounded-full overflow-hidden border border-white/20 shadow-[0_0_12px_rgba(255,255,255,0.15)] bg-zinc-900">
-                <img
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150"
-                  alt="Ritwik"
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-zinc-500 font-medium text-[10px] sm:text-[11px] uppercase tracking-wider leading-none mb-0.5">
-                  {new Date().getHours() < 12 ? "Good Morning," : new Date().getHours() < 18 ? "Good Afternoon," : "Good Evening,"}
-                </span>
-                <span className="text-white font-extrabold text-sm tracking-tight leading-none">
-                  Ritwik
-                </span>
-              </div>
-            </div>
-
-            <div className="flex gap-2">
-              {!Capacitor.isNativePlatform() && (
-                <button
-                  onClick={toggleFullscreen}
-                  className="w-10 h-10 rounded-full bg-zinc-900/60 backdrop-blur-md border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:border-white/20 transition-all active:scale-95 group cursor-pointer"
-                  title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-                >
-                  {isFullscreen ? (
-                    <Minimize2 size={18} className="transition-transform group-hover:scale-110" />
-                  ) : (
-                    <Maximize2 size={18} className="transition-transform group-hover:scale-110" />
-                  )}
-                </button>
-              )}
-
-              <button className="relative w-10 h-10 rounded-full bg-zinc-900/60 backdrop-blur-md border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:border-white/20 transition-all active:scale-95 group cursor-pointer">
-                <Bell size={18} className="transition-transform group-hover:rotate-12" />
-                <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.8)]" />
-              </button>
-            </div>
-          </div>
-
-          {/* Premium Branded ORCA Creative Studio Logo */}
-          <div className="pt-10 pb-8 flex flex-col justify-center items-center w-full mt-[2vh] text-center">
-            <h1 className="text-7xl sm:text-8.5xl font-black tracking-[-0.04em] text-white leading-none uppercase bg-clip-text text-transparent bg-gradient-to-b from-white via-zinc-100 to-zinc-400">
-              ORCA
-            </h1>
-            <div className="tracking-[0.35em] text-[10px] sm:text-[11px] text-zinc-500 font-bold uppercase flex items-center justify-center gap-1.5 mt-3 pl-[0.35em]">
-              <span>Creative Studio</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_5px_rgba(249,115,22,0.6)]" />
-            </div>
-          </div>
-
-          {/* Subsection Header: Projects & Filter */}
-          <div className="flex justify-between items-center max-w-2xl mx-auto w-full mb-6 mt-4 px-1">
-            <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-              Projects
-            </h2>
-            
-            {/* Sort Dropdown Selector */}
-            <div className="relative">
-              <button
-                onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900/60 border border-white/5 hover:bg-zinc-800/80 hover:border-white/15 text-zinc-300 text-xs font-bold leading-none cursor-pointer transition-all active:scale-95 z-20"
-              >
-                <span>
-                  {sortBy === "recent" ? "Recent" : sortBy === "name" ? "Alphabetical" : "Duration"}
-                </span>
-                <ChevronDown size={12} className={`text-zinc-500 transition-transform duration-200 ${isSortMenuOpen ? "rotate-180" : ""}`} />
-              </button>
-
-              <AnimatePresence>
-                {isSortMenuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95, y: -5 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: -5 }}
-                    className="absolute right-0 top-8 w-36 bg-zinc-900/95 border border-white/10 rounded-xl p-1 shadow-[0_12px_40px_rgba(0,0,0,0.8)] backdrop-blur-xl z-50"
-                  >
-                    {[
-                      { value: "recent", label: "Recent Order" },
-                      { value: "name", label: "Alphabetical" },
-                      { value: "duration", label: "Duration" },
-                    ].map((item) => (
-                      <button
-                        key={item.value}
-                        onClick={() => {
-                          setSortBy(item.value as any);
-                          setIsSortMenuOpen(false);
-                        }}
-                        className={`w-full text-left px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center justify-between ${
-                          sortBy === item.value ? "bg-white/[0.05] text-white" : "text-zinc-400 hover:bg-white/[0.02] hover:text-zinc-200"
-                        }`}
-                      >
-                        <span>{item.label}</span>
-                        {sortBy === item.value && <Check size={11} className="text-emerald-400" />}
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          {/* Project List */}
-          <div className="flex flex-col gap-4.5 max-w-2xl mx-auto w-full">
-            {sortedAndFilteredProjects.map((p) => (
-              <div
-                key={p.id}
-                className="relative h-[160px] w-full rounded-[30px] overflow-hidden cursor-pointer bg-zinc-950/20 hover:bg-zinc-950/30 backdrop-blur-xl border border-white/10 hover:border-white/20 active:scale-[0.99] transition-all duration-300 shadow-[0_12px_40px_-15px_rgba(0,0,0,0.8)] flex group"
-                onClick={() => openProject(p)}
-              >
-                {/* Glossy sheen base texture overlay */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.01] to-white/[0.05] pointer-events-none z-0" />
-
-                {/* Highly reflective glass gleam transition line */}
-                <div className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/[0.07] to-transparent -skew-x-[25deg] -translate-x-[150%] group-hover:translate-x-[220%] transition-transform duration-1000 ease-[cubic-bezier(0.25,1,0.5,1)] pointer-events-none z-20" />
-
-                {/* Beveled edge light reflections */}
-                <div className="absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-white/0 via-white/25 to-white/0 opacity-80 group-hover:opacity-100 transition-opacity pointer-events-none z-20" />
-                <div className="absolute inset-y-0 left-0 w-[1.5px] bg-gradient-to-b from-white/10 to-transparent pointer-events-none z-20" />
-
-                {/* Left Text Info Side */}
-                <div className="flex-1 p-5 flex flex-col justify-between h-full z-10 relative">
-                  {/* Top: Tag */}
-                  <div className="flex items-center gap-1.5 bg-white/[0.03] border border-white/5 rounded-full px-2.5 py-0.5 w-fit">
-                    <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_6px_#f97316]" />
-                    <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest leading-none">
-                      {p.ratio === "9:16" ? "Reels" : p.ratio === "16:9" ? "YouTube" : "Concept"}
-                    </span>
-                  </div>
-
-                  {/* Middle: Title & Label */}
-                  <div className="mt-1">
-                    <h3 className="text-lg sm:text-xl font-bold text-white tracking-tight leading-none flex items-center gap-1.5">
-                      {p.name}
-                    </h3>
-                    <p className="text-[11.5px] sm:text-[12.5px] font-medium text-zinc-400 leading-snug mt-1.5 max-w-[95%] line-clamp-2">
-                      Concept project focusing on simplicity & usability.
-                    </p>
-                  </div>
-
-                  {/* Bottom: Specs */}
-                  <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] font-bold tracking-wider uppercase mt-1">
-                    <Clock size={11} className="text-zinc-500" />
-                    <span>{p.duration || "00:12"}</span>
-                    <span className="text-zinc-600">•</span>
-                    <span>Draft</span>
-                  </div>
-                </div>
-
-                {/* Right Image/Artwork Side */}
-                <div className="w-[45%] h-full shrink-0 relative overflow-hidden z-10 bg-zinc-900/50">
-                  <ProjectCoverImage p={p} />
-                  {/* Frosted vignette masking division */}
-                  <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-zinc-950/40 via-zinc-950/20 to-transparent pointer-events-none" />
-
-                  {/* Three-dots menu button */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setProjectMenuOpenId(projectMenuOpenId === p.id ? null : p.id);
-                    }}
-                    className="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-black/50 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-black/75 hover:border-white/25 transition-all backdrop-blur-md z-30 pointer-events-auto"
-                  >
-                    <MoreHorizontal size={14} />
-                  </button>
-
-                  {/* Action Menu overlay per project card */}
-                  <AnimatePresence>
-                    {projectMenuOpenId === p.id && (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.9, y: -5 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.9, y: -5 }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="absolute right-3.5 top-13 w-32 bg-zinc-900/95 border border-white/10 rounded-2xl p-1.5 shadow-[0_12px_36px_rgba(0,0,0,0.9)] backdrop-blur-xl z-40 pointer-events-auto"
-                      >
-                        <button
-                          onClick={() => {
-                            setProjectMenuOpenId(null);
-                            openProject(p);
-                          }}
-                          className="w-full text-left px-3 py-2 text-xs font-semibold text-white hover:bg-white/[0.05] rounded-xl flex items-center justify-between cursor-pointer"
-                        >
-                          <span>Open</span>
-                          <ChevronRight size={11} className="text-zinc-500" />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setProjectMenuOpenId(null);
-                            duplicateProject(p);
-                          }}
-                          className="w-full text-left px-3 py-2 text-xs font-semibold text-white hover:bg-white/[0.05] rounded-xl flex items-center justify-between cursor-pointer"
-                        >
-                          <span>Duplicate</span>
-                          <Copy size={11} className="text-zinc-400" />
-                        </button>
-                        <div className="h-[1px] bg-white/5 my-1" />
-                        <button
-                          onClick={() => {
-                            setProjectMenuOpenId(null);
-                            setProjectToDelete(p.id);
-                          }}
-                          className="w-full text-left px-3 py-2 text-xs font-semibold text-red-400 hover:bg-red-500/10 rounded-xl flex items-center justify-between cursor-pointer"
-                        >
-                          <span>Delete</span>
-                          <Trash2 size={11} className="text-red-400/70" />
-                        </button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Persistent Rounded Floating Footer Row */}
-      <div className="absolute bottom-[50px] left-0 right-0 flex justify-center items-center px-6 z-40 pointer-events-none">
-        <div className="flex items-center gap-3 w-full max-w-[340px] pointer-events-auto">
-          {/* New Project Button */}
-          <button
-            onClick={() => setIsCreatingProject(true)}
-            className="relative flex-1 h-[50px] rounded-full bg-zinc-950/40 hover:bg-zinc-950/55 backdrop-blur-xl border border-white/10 text-white font-bold text-sm tracking-wide flex items-center justify-center gap-2 hover:border-white/20 active:scale-[0.97] transition-all duration-300 shadow-[0_12px_36px_rgba(0,0,0,0.65)] cursor-pointer overflow-hidden group"
-          >
-            {/* Glossy shine */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.01] to-white/[0.04] pointer-events-none" />
-            <div className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/[0.1] to-transparent -skew-x-[20deg] -translate-x-[150%] group-hover:translate-x-[250%] transition-transform duration-1000 ease-out pointer-events-none" />
-            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
-            <PlusIcon size={16} className="text-zinc-400 group-hover:text-white transition-colors" />
-            <span>New Project</span>
-          </button>
-
-          {/* Settings Button */}
-          <button
-            onClick={() => setCurrentScreen("settings")}
-            className="relative w-[50px] h-[50px] rounded-full bg-zinc-950/40 hover:bg-zinc-950/55 backdrop-blur-xl border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:border-white/20 active:scale-[0.97] transition-all duration-300 shadow-[0_12px_36px_rgba(0,0,0,0.65)] cursor-pointer overflow-hidden group"
-          >
-            {/* Glossy shine */}
-            <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.01] to-white/[0.04] pointer-events-none" />
-            <div className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/[0.1] to-transparent -skew-x-[20deg] -translate-x-[150%] group-hover:translate-x-[250%] transition-transform duration-1000 ease-out pointer-events-none" />
-            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent pointer-events-none" />
-            <Settings size={18} className="group-hover:rotate-45 transition-transform duration-300" />
-          </button>
-        </div>
-      </div>
-
-      {/* Ratio Selection Overlay */}
-      <AnimatePresence>
-        {isCreatingProject && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            className="fixed inset-0 z-50 bg-[#040404] flex flex-col items-center justify-center overflow-hidden"
-          >
-            {/* Dotted Grid Background */}
-            <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-0">
-               <div 
-                 className="w-full max-w-[800px] h-full max-h-[800px] opacity-[0.2]"
-                 style={{
-                   backgroundImage: `radial-gradient(circle at center, rgba(255,255,255,0.8) 1px, transparent 1px)`,
-                   backgroundSize: `28px 28px`,
-                   WebkitMaskImage: `radial-gradient(ellipse 50% 50% at center, black 10%, transparent 60%)`,
-                   maskImage: `radial-gradient(ellipse 50% 50% at center, black 10%, transparent 60%)`
-                 }}
-               />
-            </div>
-
-            {/* Title */}
-            <motion.div 
-               initial={{ opacity: 0, y: -10 }}
-               animate={{ opacity: 1, y: 0 }}
-               transition={{ delay: 0.2, duration: 0.8 }}
-               className="absolute top-[18%] left-0 right-0 flex items-center justify-center px-8 pointer-events-none z-10"
-            >
-              <div className="w-[60px] sm:w-[100px] h-[1px] bg-gradient-to-r from-transparent to-zinc-700" />
-              <span className="text-[10px] font-semibold tracking-[0.3em] text-zinc-500 px-6 uppercase whitespace-nowrap">
-                Choose Format
-              </span>
-              <div className="w-[60px] sm:w-[100px] h-[1px] bg-gradient-to-l from-transparent to-zinc-700" />
-            </motion.div>
-
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="absolute top-8 right-8 w-12 h-12 rounded-full bg-transparent hover:bg-zinc-800/30 flex items-center justify-center text-zinc-500 hover:text-white transition-colors z-50"
-              onClick={() => setIsCreatingProject(false)}
-            >
-              <X size={24} strokeWidth={1.5} />
-            </motion.button>
-
-            <div 
-              className="relative z-20 flex flex-nowrap items-center overflow-x-auto w-full pb-10 pt-16 scrollbar-hide snap-x snap-mandatory"
-              onScroll={(e) => {
-                const container = e.currentTarget;
-                const containerCenter = container.getBoundingClientRect().left + container.clientWidth / 2;
-                let closest = null;
-                let minDist = Infinity;
-                container.childNodes.forEach((node) => {
-                  if (node.nodeType === 1) {
-                    const el = node as HTMLElement;
-                    const val = el.getAttribute("data-ratio");
-                    if (val) {
-                      const rect = el.getBoundingClientRect();
-                      const elCenter = rect.left + rect.width / 2;
-                      const dist = Math.abs(elCenter - containerCenter);
-                      if (dist < minDist) {
-                        minDist = dist;
-                        closest = val;
-                      }
-                    }
-                  }
-                });
-                if (closest && closest !== focusedRatio) setFocusedRatio(closest);
-              }}
-              style={{
-                paddingLeft: "calc(50vw - 160px)",
-                paddingRight: "calc(50vw - 160px)"
-              }}
-            >
-              {[
-                { ratio: "9:16", baseW: 160, baseH: 340, label: "PORTRAIT" },
-                { ratio: "16:9", baseW: 340, baseH: 160, label: "LANDSCAPE" },
-                { ratio: "1:1", baseW: 240, baseH: 240, label: "SQUARE" },
-                { ratio: "custom", baseW: 240, baseH: 120, label: "CUSTOM" },
-              ].map((r, i) => {
-                const isFocused = focusedRatio === r.ratio;
-                const scale = isFocused ? 1 : 0.85;
-                return (
-                  <div key={r.ratio} data-ratio={r.ratio} className="w-[320px] shrink-0 snap-center flex justify-center items-center">
-                    <motion.div
-                       className="cursor-pointer group relative flex justify-center items-center"
-                       onClick={(e) => {
-                          if (!isFocused) {
-                             e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-                          }
-                       }}
-                    >
-                      <motion.div
-                        animate={{ width: r.baseW * scale, height: r.baseH * scale }}
-                        transition={{ type: "spring", bounce: 0.3 }}
-                        className={`relative rounded-[36px] flex items-center justify-center transition-all duration-500 ${isFocused ? "p-[1.5px]" : "p-[1px]"}`}
-                      >
-                         {/* Gradient Border for Focused */}
-                         <div 
-                            className={`absolute inset-0 rounded-[36px] pointer-events-none transition-opacity duration-700 ${isFocused ? "opacity-100" : "opacity-0"}`} 
-                            style={{ background: 'linear-gradient(145deg, rgba(167, 139, 250, 0.8) 0%, rgba(255, 255, 255, 0.1) 40%, rgba(255, 255, 255, 0.1) 60%, rgba(251, 146, 60, 0.7) 100%)' }} 
-                         />
-                         
-                         {/* Subtle Border for Unfocused */}
-                         <div className={`absolute inset-0 rounded-[36px] pointer-events-none transition-opacity duration-500 border border-white/10 ${!isFocused ? "opacity-100" : "opacity-0"}`} />
-
-                         <div className="absolute inset-[1.5px] rounded-[34.5px] bg-[#040404] z-10 pointer-events-none" />
-                         
-                         <div className="relative z-20 flex flex-col items-center justify-center gap-2">
-                           {r.ratio === "custom" && isFocused ? (
-                             <div className="flex items-center gap-3 bg-zinc-900/40 rounded-2xl p-2 border border-white/5" onClick={e => e.stopPropagation()}>
-                               <input type="number" placeholder="W" className="bg-transparent w-16 text-center text-lg text-white outline-none font-medium" value={customRatioW} onChange={(e) => setCustomRatioW(e.target.value)} />
-                               <div className="w-[1px] h-6 bg-zinc-700"></div>
-                               <input type="number" placeholder="H" className="bg-transparent w-16 text-center text-lg text-white outline-none font-medium" value={customRatioH} onChange={(e) => setCustomRatioH(e.target.value)} />
-                             </div>
-                           ) : (
-                             <span className={`font-medium text-[28px] transition-colors duration-500 tracking-wide ${isFocused ? "text-[#f8f8f8]" : "text-zinc-600"}`}>
-                               {r.ratio === "custom" ? "Custom" : r.ratio}
-                             </span>
-                           )}
-                           
-                           {isFocused ? (
-                             <span className="text-[9px] font-medium tracking-[0.25em] text-zinc-400 uppercase mt-1">
-                               {r.label}
-                             </span>
-                           ) : (
-                             <span className="text-[9px] font-medium tracking-[0.25em] text-zinc-700 uppercase mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                               {r.label}
-                             </span>
-                           )}
-                         </div>
-                      </motion.div>
-                    </motion.div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <motion.div 
-               initial={{ opacity: 0, y: 10 }}
-               animate={{ opacity: 1, y: 0 }}
-               transition={{ delay: 0.3, duration: 0.8 }}
-               className="absolute bottom-[10%] left-0 right-0 flex flex-col items-center pointer-events-none z-30"
-            >
-              <button 
-                className="pointer-events-auto relative w-[240px] h-[52px] group flex items-center justify-center rounded-[26px] transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-                onClick={() => {
-                   handleCreateProject(focusedRatio === "custom" ? `${customRatioW}:${customRatioH}` : focusedRatio);
-                }}
-              >
-                 <div className="absolute inset-0 rounded-[26px] p-[1px] opacity-60 group-hover:opacity-100 transition-opacity duration-300"
-                      style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0.6) 100%)' }} />
-                 <div className="absolute inset-[1px] rounded-[25px] bg-[#040404]" />
-                 <span className="relative z-10 font-bold tracking-[0.35em] text-[#f8f8f8] text-[11px] uppercase ml-1 opacity-90 group-hover:opacity-100 drop-shadow-sm">
-                   Create
-                 </span>
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AnimatePresence>
-        {projectToDelete && (
-          <div
-            className="fixed inset-0 z-[300] bg-black/60 flex items-center justify-center p-4"
-            onClick={() => setProjectToDelete(null)}
-          >
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-[#252528] border border-white/10 rounded-[32px] p-6 max-w-sm w-full shadow-2xl"
-            >
-              <h3 className="text-xl font-bold text-white mb-2">
-                Delete Project
-              </h3>
-              <p className="text-zinc-400 text-sm mb-6 font-medium">
-                Are you sure you want to delete this project? This action cannot
-                be undone.
-              </p>
-              <div className="flex justify-end gap-3">
-                <button
-                  className="px-5 py-2.5 rounded-full text-sm font-bold text-white hover:bg-zinc-700 transition-colors"
-                  onClick={() => setProjectToDelete(null)}
-                >
-                  Cancel
-                </button>
-                <button
-                  className="px-5 py-2.5 bg-red-500 hover:bg-red-600 rounded-full text-sm font-bold text-white transition-colors"
-                  onClick={confirmDeleteProject}
-                >
-                  Delete
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </div>
+    <HomePanel
+      projects={projects}
+      sortBy={sortBy}
+      setSortBy={setSortBy}
+      isSortMenuOpen={isSortMenuOpen}
+      setIsSortMenuOpen={setIsSortMenuOpen}
+      setCurrentScreen={setCurrentScreen}
+      isFullscreen={isFullscreen}
+      toggleFullscreen={toggleFullscreen}
+      openProject={openProject}
+      projectMenuOpenId={projectMenuOpenId}
+      setProjectMenuOpenId={setProjectMenuOpenId}
+      duplicateProject={duplicateProject}
+      projectToDelete={projectToDelete}
+      setProjectToDelete={setProjectToDelete}
+      confirmDeleteProject={confirmDeleteProject}
+      unsupportedFileDetails={unsupportedFileDetails}
+      setUnsupportedFileDetails={setUnsupportedFileDetails}
+      isCreatingProject={isCreatingProject}
+      setIsCreatingProject={setIsCreatingProject}
+      focusedRatio={focusedRatio}
+      setFocusedRatio={setFocusedRatio}
+      customRatioW={customRatioW}
+      setCustomRatioW={setCustomRatioW}
+      customRatioH={customRatioH}
+      setCustomRatioH={setCustomRatioH}
+      handleCreateProject={handleCreateProject}
+    />
   );
 };
 
@@ -5305,9 +4880,18 @@ const renderEditor = () => (
       {/* Top Header */}
       <header className="flex justify-between items-center px-4 py-4 shrink-0 relative z-[100] pointer-events-none">
         
-        <div className="flex items-center justify-center bg-zinc-800 rounded-3xl w-[180px] px-1 py-1 shadow-lg border border-white/5 pointer-events-auto">
+        <div className="flex items-center gap-2 pointer-events-auto">
+          <button
+            onClick={handleBackToHome}
+            className="w-8 h-8 rounded-full bg-zinc-800 border border-white/5 hover:bg-zinc-700 flex items-center justify-center transition-colors text-zinc-400 hover:text-white"
+            title="Back to Home"
+          >
+            <ChevronLeft size={18} />
+          </button>
+
+          <div className="flex items-center justify-center bg-zinc-800 rounded-3xl w-[180px] px-1 py-1 shadow-lg border border-white/5">
           
-          <div className="relative">
+            <div className="relative">
             <div
               onClick={() => setIsRatioExpanded(!isRatioExpanded)}
               className={`px-3 py-1.5 rounded-full text-[10px] sm:text-[11px] font-extrabold tracking-wider cursor-pointer select-none flex items-center gap-2 transition-all duration-300 ${
@@ -5445,17 +5029,16 @@ const renderEditor = () => (
             </AnimatePresence>
           </div>
         </div>
+      </div>
           
         <div className="flex items-center gap-2 pointer-events-auto">
-          {!Capacitor.isNativePlatform() && (
-            <button
-              onClick={toggleFullscreen}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-800 border border-white/5 hover:bg-zinc-700 flex items-center justify-center transition-colors text-zinc-400 hover:text-white"
-              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-            >
-              {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-            </button>
-          )}
+          <button
+            onClick={toggleFullscreen}
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-zinc-800 border border-white/5 hover:bg-zinc-700 flex items-center justify-center transition-colors text-zinc-400 hover:text-white"
+            title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+          >
+            {isFullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          </button>
           
           <div className="relative">
             <button
@@ -5549,9 +5132,18 @@ const renderEditor = () => (
       {/* Main Preview Area */}
       <main className="flex-1 min-h-0 flex flex-col pt-2 pb-4 relative z-[80] bg-[#0c0c0e]">
         <div className="flex-1 min-h-0 relative flex items-center justify-center px-4">
-          <div className={`relative w-full h-full flex items-center justify-center transition-all duration-300 ${
+          <div className={Capacitor.isNativePlatform() && isFullscreen ? "fixed inset-0 bg-black z-[9999] p-4 flex items-center justify-center pointer-events-auto" : `relative w-full h-full flex items-center justify-center transition-all duration-300 ${
             activeExpandedMenu === "plus-media" ? "opacity-0 scale-[0.97] pointer-events-none" : "opacity-100 scale-100"
           }`}>
+            {Capacitor.isNativePlatform() && isFullscreen && (
+              <button
+                onClick={toggleFullscreen}
+                className="absolute top-6 right-6 z-[10000] w-10 h-10 rounded-full bg-zinc-900/80 border border-white/20 flex items-center justify-center text-white hover:bg-zinc-800 transition-colors shadow-2xl pointer-events-auto"
+                title="Exit Fullscreen"
+              >
+                <Minimize2 size={20} />
+              </button>
+            )}
             <svg
               viewBox={`0 0 ${currentProjectRatio.split(":")[0]} ${currentProjectRatio.split(":")[1]}`}
               className="max-w-full max-h-full h-[100%] pointer-events-none opacity-0"
@@ -5583,7 +5175,7 @@ const renderEditor = () => (
               return (
                 <div
                   key={layer.id}
-                  className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                  className="absolute inset-0 pointer-events-none"
                 >
                   {activeClipInfos.map(({ clip: activeClipRaw, role, progress, transitionType }) => {
                     const interpolatedProps = getInterpolatedProps(activeClipRaw, currentTime - activeClipRaw.leftSeconds, activeExpandedMenu);
@@ -5671,12 +5263,198 @@ const renderEditor = () => (
                       }
                     }
 
+                    // Apply Entrance (In Move) and Exit (Out Move) animations from Motion Bar (M)
+                    const elapsed = currentTime - activeClipRaw.leftSeconds;
+                    const remaining = (activeClipRaw.leftSeconds + activeClipRaw.durationSeconds) - currentTime;
+                    const motionDuration = Math.min(0.6, activeClipRaw.durationSeconds / 2);
+
+                    let motionOutBlurAmount = 0;
+                    let motionInBlurAmount = 0;
+
+                    if (motionDuration > 0) {
+                      if (activeClip.animationIn && activeClip.animationIn !== "None" && elapsed < motionDuration) {
+                        const inProgress = elapsed / motionDuration; // 0 to 1
+                        if (activeClip.animationIn === "Fade In") {
+                          transitionOpacityMultiplier *= inProgress;
+                        } else if (activeClip.animationIn === "Slide Up") {
+                          transitionOpacityMultiplier *= inProgress;
+                          extraTransform += ` translateY(${(1 - inProgress) * 120}px)`;
+                        } else if (activeClip.animationIn === "Slide Down") {
+                          transitionOpacityMultiplier *= inProgress;
+                          extraTransform += ` translateY(${-(1 - inProgress) * 120}px)`;
+                        } else if (activeClip.animationIn === "Slide Left") {
+                          transitionOpacityMultiplier *= inProgress;
+                          extraTransform += ` translateX(${(1 - inProgress) * 120}px)`;
+                        } else if (activeClip.animationIn === "Slide Right") {
+                          transitionOpacityMultiplier *= inProgress;
+                          extraTransform += ` translateX(${-(1 - inProgress) * 120}px)`;
+                        } else if (activeClip.animationIn === "Zoom In") {
+                          transitionOpacityMultiplier *= inProgress;
+                          extraTransform += ` scale(${0.3 + inProgress * 0.7})`;
+                        } else if (activeClip.animationIn === "Zoom Out In") {
+                          transitionOpacityMultiplier *= inProgress;
+                          extraTransform += ` scale(${1.6 - (1 - inProgress) * 0.6})`;
+                        } else if (activeClip.animationIn === "Bounce In") {
+                          transitionOpacityMultiplier *= Math.min(1, inProgress * 1.5);
+                          const bounceVal = Math.sin(inProgress * Math.PI / 2) * 1.1 - 0.1 * (1 - inProgress);
+                          extraTransform += ` scale(${bounceVal})`;
+                        } else if (activeClip.animationIn === "Spin In") {
+                          transitionOpacityMultiplier *= inProgress;
+                          extraTransform += ` scale(${inProgress}) rotate(${(1 - inProgress) * 180}deg)`;
+                        } else if (activeClip.animationIn === "Flip In X") {
+                          transitionOpacityMultiplier *= inProgress;
+                          extraTransform += ` perspective(800px) rotateX(${(1 - inProgress) * 90}deg)`;
+                        } else if (activeClip.animationIn === "Flip In Y") {
+                          transitionOpacityMultiplier *= inProgress;
+                          extraTransform += ` perspective(800px) rotateY(${(1 - inProgress) * 90}deg)`;
+                        } else if (activeClip.animationIn === "Glitch In") {
+                          transitionOpacityMultiplier *= inProgress;
+                          if (inProgress < 0.8) {
+                            const randomShiftX = (Math.random() - 0.5) * 20 * (1 - inProgress);
+                            const randomShiftY = (Math.random() - 0.5) * 20 * (1 - inProgress);
+                            extraTransform += ` translate(${randomShiftX}px, ${randomShiftY}px)`;
+                          }
+                        } else if (activeClip.animationIn === "Slide In") {
+                          // Keep backward compatibility
+                          transitionOpacityMultiplier *= inProgress;
+                          extraTransform += ` translateY(${(1 - inProgress) * 80}px)`;
+                        }
+                      }
+
+                      if (activeClip.animationOut && activeClip.animationOut !== "None" && remaining < motionDuration) {
+                        const outProgress = Math.max(0, 1 - (remaining / motionDuration)); // 0 to 1
+                        if (activeClip.animationOut === "Fade Out") {
+                          transitionOpacityMultiplier *= (1 - outProgress);
+                        } else if (activeClip.animationOut === "Slide Up Out") {
+                          transitionOpacityMultiplier *= (1 - outProgress);
+                          extraTransform += ` translateY(${-outProgress * 120}px)`;
+                        } else if (activeClip.animationOut === "Slide Down Out") {
+                          transitionOpacityMultiplier *= (1 - outProgress);
+                          extraTransform += ` translateY(${outProgress * 120}px)`;
+                        } else if (activeClip.animationOut === "Slide Left Out") {
+                          transitionOpacityMultiplier *= (1 - outProgress);
+                          extraTransform += ` translateX(${-outProgress * 120}px)`;
+                        } else if (activeClip.animationOut === "Slide Right Out") {
+                          transitionOpacityMultiplier *= (1 - outProgress);
+                          extraTransform += ` translateX(${outProgress * 120}px)`;
+                        } else if (activeClip.animationOut === "Zoom Out") {
+                          transitionOpacityMultiplier *= (1 - outProgress);
+                          extraTransform += ` scale(${1 - outProgress * 0.7})`;
+                        } else if (activeClip.animationOut === "Zoom In Out") {
+                          transitionOpacityMultiplier *= (1 - outProgress);
+                          extraTransform += ` scale(${1 + outProgress * 0.6})`;
+                        } else if (activeClip.animationOut === "Bounce Out") {
+                          transitionOpacityMultiplier *= Math.max(0, 1 - outProgress * 1.5);
+                          const bounceOutTranslate = Math.sin(outProgress * Math.PI) * -20 + (outProgress * 120);
+                          extraTransform += ` translateY(${bounceOutTranslate}px)`;
+                        } else if (activeClip.animationOut === "Spin Out") {
+                          transitionOpacityMultiplier *= (1 - outProgress);
+                          extraTransform += ` scale(${1 - outProgress}) rotate(${outProgress * 180}deg)`;
+                        } else if (activeClip.animationOut === "Flip Out X") {
+                          transitionOpacityMultiplier *= (1 - outProgress);
+                          extraTransform += ` perspective(800px) rotateX(${outProgress * 90}deg)`;
+                        } else if (activeClip.animationOut === "Flip Out Y") {
+                          transitionOpacityMultiplier *= (1 - outProgress);
+                          extraTransform += ` perspective(800px) rotateY(${outProgress * 90}deg)`;
+                        } else if (activeClip.animationOut === "Glitch Out") {
+                          transitionOpacityMultiplier *= (1 - outProgress);
+                          if (outProgress > 0.2) {
+                            const randomShiftX = (Math.random() - 0.5) * 20 * outProgress;
+                            const randomShiftY = (Math.random() - 0.5) * 20 * outProgress;
+                            extraTransform += ` translate(${randomShiftX}px, ${randomShiftY}px)`;
+                          }
+                        } else if (activeClip.animationOut === "Slide Out") {
+                          // Keep backward compatibility
+                          transitionOpacityMultiplier *= (1 - outProgress);
+                          extraTransform += ` translateY(${outProgress * 80}px)`;
+                        }
+
+                        // Calculate Out Motion transform blur (triggered by moving/scaling Out Animations)
+                        if (activeClip.motionOutBlurApplied) {
+                          const blurFactor = activeClip.motionOutBlurStrength ?? 40;
+                          motionOutBlurAmount = Math.sin(outProgress * Math.PI) * (blurFactor * 0.15);
+                        }
+                      }
+                    }
+
+                    // Apply Overall continuous animations
+                    if (activeClip.animationOverall && activeClip.animationOverall !== "None") {
+                      if (activeClip.animationOverall === "Camera Shake" || activeClip.animationOverall === "Shake") {
+                        const shakeFreq = 16;
+                        const shakeAmpX = Math.sin(elapsed * shakeFreq) * 5 + Math.cos(elapsed * (shakeFreq / 2)) * 3;
+                        const shakeAmpY = Math.cos(elapsed * (shakeFreq * 1.2)) * 4 + Math.sin(elapsed * (shakeFreq / 2.5)) * 2;
+                        extraTransform += ` translate(${shakeAmpX}px, ${shakeAmpY}px) rotate(${Math.sin(elapsed * 10) * 0.6}deg)`;
+                      } else if (activeClip.animationOverall === "Violent Shake") {
+                        const vFreq = 42;
+                        const vX = Math.sin(elapsed * vFreq) * 14 + Math.cos(elapsed * 21) * 7;
+                        const vY = Math.cos(elapsed * 48) * 12 + Math.sin(elapsed * 17) * 6;
+                        extraTransform += ` translate(${vX}px, ${vY}px) rotate(${Math.sin(elapsed * vFreq) * 2.2}deg)`;
+                      } else if (activeClip.animationOverall === "Glitch Shake") {
+                        const glitchCycle = Math.floor(elapsed * 10) % 6;
+                        if (glitchCycle === 0 || glitchCycle === 3) {
+                          const gX = (Math.sin(elapsed * 80) > 0 ? 9 : -9) * (Math.sin(elapsed * 13) * 0.8 + 0.2);
+                          const gY = (Math.cos(elapsed * 60) > 0 ? 5 : -5) * (Math.cos(elapsed * 17) * 0.8 + 0.2);
+                          extraTransform += ` translate(${gX}px, ${gY}px) skewX(${Math.sin(elapsed * 50) * 4}deg)`;
+                        }
+                      } else if (activeClip.animationOverall === "Soft Drift") {
+                        const driftX = Math.sin(elapsed * 1.5) * 15;
+                        const driftY = Math.cos(elapsed * 1.1) * 12;
+                        extraTransform += ` translate(${driftX}px, ${driftY}px)`;
+                      } else if (activeClip.animationOverall === "Spin") {
+                        extraTransform += ` rotate(${elapsed * 120}deg)`;
+                      } else if (activeClip.animationOverall === "Pulse") {
+                        extraTransform += ` scale(${1 + Math.sin(elapsed * 5) * 0.08})`;
+                      } else if (activeClip.animationOverall === "Float") {
+                        extraTransform += ` translateY(${Math.sin(elapsed * 3) * 12}px)`;
+                      } else if (activeClip.animationOverall === "Jiggle") {
+                        const jiggleRot = Math.sin(elapsed * 14) * 5;
+                        extraTransform += ` rotate(${jiggleRot}deg)`;
+                      } else if (activeClip.animationOverall === "Wobble") {
+                        const wobbleRot = Math.sin(elapsed * 8) * 4;
+                        const wobbleScaleX = 1 + Math.sin(elapsed * 10) * 0.05;
+                        const wobbleScaleY = 1 + Math.cos(elapsed * 10) * 0.05;
+                        extraTransform += ` rotate(${wobbleRot}deg) scale(${wobbleScaleX}, ${wobbleScaleY})`;
+                      } else if (activeClip.animationOverall === "Heartbeat") {
+                        const t = (elapsed * 1.8) % Math.PI;
+                        const heartbeatScale = 1 + (t < 0.5 ? Math.sin(t * Math.PI * 2) * 0.12 : t < 1.0 ? Math.sin((t - 0.5) * Math.PI * 2) * 0.06 : 0);
+                        extraTransform += ` scale(${heartbeatScale})`;
+                      } else if (activeClip.animationOverall === "Pendulum") {
+                        const penRot = Math.sin(elapsed * 4) * 15;
+                        extraTransform += ` rotate(${penRot}deg)`;
+                      } else if (activeClip.animationOverall === "Vibrate") {
+                        const vibX = Math.sin(elapsed * 120) * 2;
+                        const vibY = Math.cos(elapsed * 150) * 2;
+                        extraTransform += ` translate(${vibX}px, ${vibY}px)`;
+                      } else if (activeClip.animationOverall === "Cinematic Pan") {
+                        const panX = Math.sin(elapsed * 0.4) * 25;
+                        extraTransform += ` translateX(${panX}px)`;
+                      } else if (activeClip.animationOverall === "Flicker") {
+                        const flickerVal = 0.94 + Math.sin(elapsed * 45) * 0.04 + Math.cos(elapsed * 110) * 0.02;
+                        transitionOpacityMultiplier *= flickerVal;
+                      } else if (activeClip.animationOverall === "Ken Burns Zoom") {
+                        const kenBurnsScale = 1.05 + Math.sin(elapsed * 0.3) * 0.05;
+                        extraTransform += ` scale(${kenBurnsScale})`;
+                      }
+                    }
+
+                    // Apply Pixel Motion Blur if activated (In Motion)
+                    if (activeClip.motionInBlurApplied) {
+                      const strength = activeClip.motionInBlurStrength ?? 35;
+                      const speed = activeClip.motionInBlurSpeed ?? 50;
+                      // Calculate pixel-movement spikes
+                      const timeFactor = Math.sin(currentTime * 8) * Math.cos(currentTime * 3);
+                      const motionIntensity = Math.max(0, timeFactor);
+                      motionInBlurAmount = motionIntensity * (strength * 0.12) * (speed / 50);
+                    }
+
                     // Determine volume multiplier for audio crossfading
                     let transVolumeMultiplier = 1;
                     if (progress !== undefined && transitionType) {
                       if (role === "outgoing") transVolumeMultiplier = 1 - progress;
                       if (role === "incoming") transVolumeMultiplier = progress;
                     }
+
+                    const totalBlur = (activeClip.blur || 0) + extraBlur + motionOutBlurAmount + motionInBlurAmount;
 
                     const transformStyle: React.CSSProperties = {
                       transformOrigin: `${(activeClip.anchorPointX ?? 0.5) * 100}% ${(activeClip.anchorPointY ?? 0.5) * 100}%`,
@@ -5693,9 +5471,9 @@ const renderEditor = () => (
                       opacity: (activeClip.opacity ?? 1) * transitionOpacityMultiplier,
                       mixBlendMode: activeClip.mixBlendMode as any || "normal",
                       filter: isPlaying
-                        ? `brightness(${(activeClip.brightness === undefined ? 100 : activeClip.brightness) + (activeClip.exposure || 0)}%) contrast(${activeClip.contrast === undefined ? 100 : activeClip.contrast}%) saturate(${activeClip.saturation === undefined ? 100 : activeClip.saturation}%)`
+                        ? `blur(${totalBlur}px) brightness(${(activeClip.brightness === undefined ? 100 : activeClip.brightness) + (activeClip.exposure || 0)}%) contrast(${activeClip.contrast === undefined ? 100 : activeClip.contrast}%) saturate(${activeClip.saturation === undefined ? 100 : activeClip.saturation}%)`
                         : `
-                        blur(${(activeClip.blur || 0) + extraBlur}px)
+                        blur(${totalBlur}px)
                         brightness(${(activeClip.brightness === undefined ? 100 : activeClip.brightness) + (activeClip.exposure || 0)}%)
                         contrast(${activeClip.contrast === undefined ? 100 : activeClip.contrast}%)
                         saturate(${activeClip.saturation === undefined ? 100 : activeClip.saturation}%)
@@ -5720,56 +5498,14 @@ const renderEditor = () => (
                         ) : (
                           <>
                             {activeClip.type === "text" && (
-                              <div
-                                id={`clip-media-${activeClip.id}`}
-                                className="flex items-center justify-center w-full h-full font-sans break-words whitespace-pre-wrap text-center overflow-hidden absolute"
-                                style={{
-                                  ...transformStyle,
-                                  color: activeClip.color || "#ffffff",
-                                  fontSize: `${activeClip.fontSize || 48}px`,
-                                  fontFamily: activeClip.fontFamily || "sans-serif",
-                                  letterSpacing: activeClip.letterSpacing ? `${activeClip.letterSpacing}px` : undefined,
-                                  lineHeight: activeClip.lineHeight ? `${activeClip.lineHeight}` : undefined,
-                                  WebkitTextStroke: activeClip.strokeWidth ? `${activeClip.strokeWidth}px ${activeClip.strokeColor || "#000000"}` : undefined,
-                                  textShadow: activeClip.textShadow || (
-                                    activeClip.glowColor && activeClip.glowRadius 
-                                      ? `0 0 ${activeClip.glowRadius}px ${activeClip.glowColor}`
-                                      : activeClip.shadowColor 
-                                      ? `${activeClip.shadowOffsetX || 3}px ${activeClip.shadowOffsetY || 3}px ${activeClip.shadowBlur || 5}px ${activeClip.shadowColor}`
-                                      : undefined
-                                  ),
-                                  ...(activeClip.textAnimation === "Fade In" ? { opacity: (activeClip.opacity ?? 1) * Math.min(1, (currentTime - activeClipRaw.leftSeconds) / 1) } : {}),
-                                  ...(activeClip.textAnimation === "Slide Up" ? { 
-                                      opacity: (activeClip.opacity ?? 1) * Math.min(1, (currentTime - activeClipRaw.leftSeconds) / 1),
-                                      transform: `${transformStyle.transform} translateY(${(1 - Math.min(1, (currentTime - activeClipRaw.leftSeconds) / 1)) * 50}px)`
-                                  } : {}),
-                                  ...(activeClip.textAnimation === "Bounce" ? { 
-                                      opacity: (activeClip.opacity ?? 1) * Math.min(1, (currentTime - activeClipRaw.leftSeconds) / 1),
-                                      transform: `${transformStyle.transform} translateY(${-(Math.sin(Math.min(1, (currentTime - activeClipRaw.leftSeconds) / 1) * Math.PI) * 20 * (1-Math.min(1, (currentTime - activeClipRaw.leftSeconds) / 1)))}px)`
-                                  } : {}),
-                                  ...(activeClip.textAnimation === "Pop" ? { 
-                                      opacity: (activeClip.opacity ?? 1) * Math.min(1, (currentTime - activeClipRaw.leftSeconds) / 0.4),
-                                      transform: `${transformStyle.transform} scale(${Math.min(1, (currentTime - activeClipRaw.leftSeconds) / 0.4) <= 1 ? 0.5 + Math.sin(Math.min(1, (currentTime - activeClipRaw.leftSeconds) / 0.4) * (Math.PI / 2)) * 0.5 + Math.sin(Math.min(1, (currentTime - activeClipRaw.leftSeconds) / 0.4) * Math.PI) * 0.2 : 1})`
-                                  } : {}),
-                                  ...(activeClip.textAnimation === "Glitch" && (currentTime - activeClipRaw.leftSeconds) < 1.5 ? {
-                                      transform: `${transformStyle.transform} translate(${Math.random() > 0.8 ? (Math.random() - 0.5) * 20 : 0}px, ${Math.random() > 0.8 ? (Math.random() - 0.5) * 20 : 0}px)`,
-                                      filter: Math.random() > 0.8 ? `hue-rotate(90deg) invert(100%)` : `blur(${activeClip.blur || 0}px)`
-                                  } : {}),
-                                  ...(activeClip.textAnimation === "Wave" ? {
-                                      transform: `${transformStyle.transform} translateY(${Math.sin((currentTime - activeClipRaw.leftSeconds) * 5) * 15}px)`
-                                  } : {})
-                                }}
-                              >
-                                <span
-                                   className={`pointer-events-none select-none ${!activeClip.text ? 'opacity-40 italic' : ''}`}>
-                                   {activeClip.text ? (
-                                     activeClip.textAnimation === "Typewriter" 
-                                       ? (activeClip.text || "").substring(0, Math.floor(Math.min(1, (currentTime - activeClipRaw.leftSeconds) / 2) * (activeClip.text || "").length))
-                                       : activeClip.text
-                                   ) : (selectedClipId === activeClip.id ? "Type text..." : "")}
-                                </span>
-                               </div>
-                             )}
+                              <TextRenderer
+                                activeClip={activeClip}
+                                activeClipRaw={activeClipRaw}
+                                currentTime={currentTime}
+                                selectedClipId={selectedClipId}
+                                transformStyle={transformStyle}
+                              />
+                            )}
 
                              {activeClip.type === "image" && (
                               <div
@@ -5799,6 +5535,12 @@ const renderEditor = () => (
                                     className="w-full h-full object-cover pointer-events-none"
                                     crossOrigin="anonymous"
                                     onError={() => handleClipError(activeClip.id)}
+                                    style={{
+                                      transform: activeClip.maskType && activeClip.maskType !== "none"
+                                        ? `translate(${activeClip.maskMediaTranslateX || 0}px, ${activeClip.maskMediaTranslateY || 0}px) scale(${activeClip.maskMediaScale || 1})`
+                                        : "none",
+                                      transformOrigin: "center"
+                                    }}
                                   />
                                 </div>
                                 {activeExpandedMenu === "crop" && selectedClipId === activeClip.id && (
@@ -5855,6 +5597,12 @@ const renderEditor = () => (
                                          >
                                            <VideoRenderer
                                              id={`clip-media-orig-${activeClip.id}`}
+                                             style={{
+                                               transform: activeClip.maskType && activeClip.maskType !== "none"
+                                                 ? `translate(${activeClip.maskMediaTranslateX || 0}px, ${activeClip.maskMediaTranslateY || 0}px) scale(${activeClip.maskMediaScale || 1})`
+                                                 : "none",
+                                               transformOrigin: "center"
+                                             }}
                                              clip={activeClip}
                                              currentTime={currentTime}
                                              isPlaying={isPlaying}
@@ -5889,6 +5637,12 @@ const renderEditor = () => (
                                                className="w-full h-full object-cover pointer-events-none"
                                                onError={() => handleClipError(activeClip.id)}
                                                volumeMultiplier={transVolumeMultiplier}
+                                               style={{
+                                                 transform: activeClip.maskType && activeClip.maskType !== "none"
+                                                   ? `translate(${activeClip.maskMediaTranslateX || 0}px, ${activeClip.maskMediaTranslateY || 0}px) scale(${activeClip.maskMediaScale || 1})`
+                                                   : "none",
+                                                 transformOrigin: "center"
+                                               }}
                                              />
                                            </div>
                                          </div>
@@ -5923,6 +5677,12 @@ const renderEditor = () => (
                                        className="w-full h-full object-cover pointer-events-none"
                                        onError={() => handleClipError(activeClip.id)}
                                        volumeMultiplier={transVolumeMultiplier}
+                                       style={{
+                                         transform: activeClip.maskType && activeClip.maskType !== "none"
+                                           ? `translate(${activeClip.maskMediaTranslateX || 0}px, ${activeClip.maskMediaTranslateY || 0}px) scale(${activeClip.maskMediaScale || 1})`
+                                           : "none",
+                                         transformOrigin: "center"
+                                       }}
                                      />
                                      {activeClip.isStabilized && (
                                        <div className="absolute top-2 right-2 bg-indigo-500/85 text-white font-bold text-[8px] tracking-widest uppercase px-1.5 py-0.5 rounded shadow-md pointer-events-none z-20 flex items-center gap-1">
@@ -6028,13 +5788,14 @@ const renderEditor = () => (
                       </button>
                     </div>
                   </div>
-                ) : isMediaLoading ? (
-                  <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-                    <span className="w-10 h-10 border-4 border-zinc-800 border-t-indigo-500 rounded-full animate-spin mb-3"></span>
-                    <span className="text-[10px] text-zinc-400 font-bold select-none uppercase tracking-widest">Scanning Local Media...</span>
-                  </div>
                 ) : (
                   <div className="flex-1 flex flex-col min-h-0 overflow-hidden text-left relative">
+                    {isMediaLoading && (
+                      <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/15 rounded-xl mb-3 shrink-0 animate-pulse">
+                        <span className="w-2 h-2 rounded-full bg-indigo-400 animate-ping"></span>
+                        <span className="text-[9px] font-bold text-indigo-300 uppercase tracking-wider">Syncing native storage in background...</span>
+                      </div>
+                    )}
                     {Capacitor.isNativePlatform() && (
                       <div className="bg-[#181822]/80 border border-indigo-500/10 rounded-2xl p-3.5 mb-4 shrink-0 flex items-center justify-between gap-3 shadow-md font-sans">
                         <div className="flex items-center gap-3 col-span-1">
@@ -6289,7 +6050,7 @@ const renderEditor = () => (
 
                 {/* 4. Action Button (Decide Later) */}
                 <button
-                  className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all outline-none select-none shrink-0"
+                  className="p-1 shrink-0 rounded-full transition-colors snap-start flex items-center justify-center text-zinc-300 hover:text-white hover:bg-zinc-800 transition-all outline-none select-none shrink-0"
                   onClick={() => {
                     setToastMessage("Placeholder action - customize later");
                     setTimeout(() => setToastMessage(null), 2000);
@@ -6355,7 +6116,14 @@ const renderEditor = () => (
                       transition={{ duration: 0.15 }}
                       className="ml-0.5 overflow-hidden flex-1 select-none"
                     >
-                      <div className="bg-[#2A2A2D]/95 backdrop-blur-md rounded-full border border-white/10 shadow-lg px-3 h-7 sm:h-8 flex items-center justify-center gap-1.5 w-full select-none text-center">
+                      <div className={`backdrop-blur-md rounded-full border shadow-lg px-3 h-7 sm:h-8 flex items-center justify-center gap-1.5 w-full select-none text-center ${
+                        pillPopup && pillPopup.type === 'error'
+                          ? "bg-red-950/80 border-red-500/30 text-red-200"
+                          : "bg-[#2A2A2D]/95 border-white/10 text-white/95"
+                      }`}>
+                        {pillPopup && pillPopup.type === 'error' && (
+                          <AlertCircle size={14} className="text-red-400 shrink-0" />
+                        )}
                         {pillPopup && pillPopup.type === 'loading' && pillPopup.progress !== undefined && (
                           <div className="w-3.5 h-3.5 sm:w-4 sm:h-4 relative shrink-0">
                             <svg className="w-full h-full" viewBox="0 0 20 20">
@@ -7568,7 +7336,7 @@ const renderEditor = () => (
             layoutId="new-project-btn"
             layout
             transition={{ type: "spring", bounce: 0.5, duration: 0.6 }}
-            className={`fixed bottom-0 mt-[0px] mb-[60px] left-1/2 -translate-x-1/2 flex flex-col bg-[#0d0d12]/95 backdrop-blur-xl overflow-hidden ${activeExpandedMenu === "speed-curves" ? "rounded-[24px] pt-1.5 pb-1 w-[218px]" : activeExpandedMenu === "move" ? "rounded-[24px] pt-1.5 pb-1.5 w-[218px]" : (activeExpandedMenu && activeExpandedMenu !== "plus-media") ? "rounded-[24px] pt-1.5 pb-1 w-[218px]" : "rounded-[24px] h-[50px] justify-center w-[218px]"} shadow-[0_20px_50px_rgba(0,0,0,0.7),_0_0_20px_rgba(99,102,241,0.06)] border border-white/10 z-[200] transform-gpu`}
+            className={`fixed bottom-0 mt-[0px] mb-[60px] left-1/2 -translate-x-1/2 flex flex-col bg-[#0d0d12]/95 backdrop-blur-xl overflow-y-auto scrollbar-hide ${activeExpandedMenu === "speed-curves" ? "rounded-[24px] pt-1.5 pb-1 w-[218px] max-h-[210px]" : activeExpandedMenu === "move" ? "rounded-[24px] pt-1.5 pb-1.5 w-[218px] max-h-[210px]" : (activeExpandedMenu && activeExpandedMenu !== "plus-media") ? "rounded-[24px] pt-1.5 pb-1 w-[218px] max-h-[210px]" : "rounded-[24px] h-[50px] justify-center w-[218px]"} shadow-[0_20px_50px_rgba(0,0,0,0.7),_0_0_20px_rgba(99,102,241,0.06)] border border-white/10 z-[200] transform-gpu`}
           >
             <AnimatePresence mode="popLayout">
               {activeExpandedMenu === "transition" && transitionModal && (() => {
@@ -7690,95 +7458,17 @@ const renderEditor = () => (
               })()}
 
               {activeExpandedMenu === "volume" && (
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex flex-col w-full px-3 pb-1"
-                >
-                  <div className="flex justify-between items-center w-full mb-0.5 px-0.5 mt-0.5">
-                    <button
-                      className="flex items-center gap-2 text-[11px] text-zinc-300 hover:text-white"
-                      onClick={() => setApplyVolumeToAll(!applyVolumeToAll)}
-                    >
-                      <div
-                        className={`w-[14px] h-[14px] rounded-full border-[1.5px] ${applyVolumeToAll ? "border-white bg-white" : "border-zinc-500"} flex items-center justify-center transition-colors`}
-                      >
-                        {applyVolumeToAll && (
-                          <div className="w-1.5 h-1.5 bg-black rounded-full" />
-                        )}
-                      </div>
-                      Apply to all
-                    </button>
-                    <div className="flex items-center gap-1.5 pl-2">
-                      {renderCopyPasteButtons("volume")}
-                      <button
-                        onClick={() => setActiveExpandedMenu(null)}
-                        className="text-zinc-400 hover:text-white pb-0.5 pr-0.5 flex items-center justify-center p-1 rounded-md hover:bg-zinc-800 transition"
-                      >
-                        <Check size={16} strokeWidth={2} />
-                      </button>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center w-full gap-3 px-0.5 mb-1 mt-0.5">
-                    <div
-                      className="flex-1 h-8 relative cursor-ew-resize touch-none flex items-center"
-                      onPointerDown={(e) => {
-                        const target = e.currentTarget;
-                        target.setPointerCapture(e.pointerId);
-                        const updateVol = (clientX: number) => {
-                          const rect = target.getBoundingClientRect();
-                          let x = clientX - rect.left;
-                          x = Math.max(0, Math.min(rect.width, x));
-                          let val = Math.round((x / rect.width) * 100);
-                          setClipVolume(val);
-                          
-                          const targetIds = clips
-                            .filter(c => c.id === selectedClipId || (applyVolumeToAll && (c.type === "video" || c.type === "audio")))
-                            .map(c => c.id);
-                            
-                          updateClipsProperties(targetIds, { volume: val });
-                        };
-                        updateVol(e.clientX);
-                        const moveHandler = (me: PointerEvent) => updateVol(me.clientX);
-                        const upHandler = (ue: PointerEvent) => {
-                          target.releasePointerCapture(ue.pointerId);
-                          target.removeEventListener("pointermove", moveHandler);
-                          target.removeEventListener("pointerup", upHandler);
-                          target.removeEventListener("pointercancel", upHandler);
-                        };
-                        target.addEventListener("pointermove", moveHandler);
-                        target.addEventListener("pointerup", upHandler);
-                        target.addEventListener("pointercancel", upHandler);
-                      }}
-                    >
-                      {/* Track background */}
-                      <div className="absolute left-0 right-0 h-[1.5px] bg-white/20 rounded-full pointer-events-none" />
-                      
-                      {/* Active level fill */}
-                      <div
-                        className="absolute left-0 h-[1.5px] bg-[#a5b4fc] rounded-full pointer-events-none transition-all duration-75"
-                        style={{ width: `${currentSelectedClipInterpolatedProps?.volume ?? 100}%` }}
-                      />
-
-                      {/* Premium knob mirroring user's photo */}
-                      <div
-                        className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 pointer-events-none transition-all duration-75 flex items-center justify-center z-10"
-                        style={{ left: `${currentSelectedClipInterpolatedProps?.volume ?? 100}%` }}
-                      >
-                        <div className="w-[22px] h-[22px] bg-white/15 backdrop-blur-[1px] rounded-full flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.4)] border border-white/20">
-                          <div className="w-[11px] h-[11px] bg-white rounded-full shadow-[0_1px_3px_rgba(0,0,0,0.4)]" />
-                        </div>
-                      </div>
-                    </div>
-                    <span className="text-[10px] text-zinc-300 font-sans w-8 text-right font-medium">
-                      {Math.round(currentSelectedClipInterpolatedProps?.volume ?? 100)}%
-                    </span>
-                  </div>
-                </motion.div>
+                <VolumePanel
+                  selectedClipId={selectedClipId}
+                  clips={clips}
+                  applyVolumeToAll={applyVolumeToAll}
+                  setApplyVolumeToAll={setApplyVolumeToAll}
+                  setClipVolume={setClipVolume}
+                  currentSelectedClipInterpolatedProps={currentSelectedClipInterpolatedProps}
+                  updateClipsProperties={updateClipsProperties}
+                  renderCopyPasteButtons={renderCopyPasteButtons}
+                  setActiveExpandedMenu={setActiveExpandedMenu}
+                />
               )}
 
               {activeExpandedMenu === "speed" && (
@@ -8282,593 +7972,73 @@ const renderEditor = () => (
                   setToastMessage={setToastMessage}
                 />
               )}
-              {activeExpandedMenu === "stabilize" && selectedClipId && (() => {
-                const clip = clips.find(c => c.id === selectedClipId);
-                if (!clip) return null;
-
-                const isStabilizing = stabilizingProgress && stabilizingProgress.clipId === clip.id;
-
-                return (
-                  <motion.div
-                    layout
-                    initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                    transition={{ duration: 0.2 }}
-                    className="flex flex-col w-full text-left select-none px-2.5 pb-2.5"
-                  >
-                    {/* Header */}
-                    <div className="flex justify-between items-center w-full mb-1.5 px-0.5 mt-1">
-                      <span className="text-[10px] font-extrabold text-indigo-400 uppercase tracking-widest">Stabilizer</span>
-                      <div className="flex items-center gap-1.5">
-                        {renderCopyPasteButtons("stabilize")}
-                        <button 
-                          onClick={() => setActiveExpandedMenu(null)}
-                          className="text-zinc-500 hover:text-white p-1 rounded-md hover:bg-zinc-805/40 transition flex items-center justify-center"
-                        >
-                          <Check size={12} className="text-emerald-400" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {isStabilizing ? (
-                      <div className="flex flex-col items-center justify-center py-2 space-y-1">
-                        {/* Circular Loader */}
-                        <div className="text-indigo-400 animate-spin flex items-center justify-center">
-                          <Activity size={18} />
-                        </div>
-                        <span className="text-sm font-black tracking-tighter text-white">
-                          {stabilizingProgress.progress}%
-                        </span>
-                        <span className="text-[8px] text-zinc-400 font-bold tracking-tight text-center truncate w-full max-w-full leading-none">
-                          {stabilizingProgress.stage}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-1">
-                        <div className="flex flex-col gap-1 max-h-[140px] overflow-y-auto scrollbar-hide">
-                          <button
-                            onClick={() => handleStabilize(clip.id, "standard")}
-                            className={`flex items-center justify-between w-full p-1.5 px-2 rounded-lg text-[9.5px] font-semibold transition-all ${clip.isStabilized && clip.stabilizationMode === "standard" ? "bg-indigo-600 text-white" : "bg-neutral-800 hover:bg-neutral-700 text-zinc-300"} cursor-pointer`}
-                          >
-                            <span className="truncate">Standard</span>
-                            <span className="text-[8px] opacity-75">1.08x</span>
-                          </button>
-                          
-                          <button
-                            onClick={() => handleStabilize(clip.id, "active")}
-                            className={`flex items-center justify-between w-full p-1.5 px-2 rounded-lg text-[9.5px] font-semibold transition-all ${clip.isStabilized && clip.stabilizationMode === "active" ? "bg-blue-600 text-white" : "bg-neutral-800 hover:bg-neutral-700 text-zinc-300"} cursor-pointer`}
-                          >
-                            <span className="truncate">Active (High)</span>
-                            <span className="text-[8px] opacity-75">1.18x</span>
-                          </button>
-                          
-                          <button
-                            onClick={() => handleStabilize(clip.id, "locked")}
-                            className={`flex items-center justify-between w-full p-1.5 px-2 rounded-lg text-[9.5px] font-semibold transition-all ${clip.isStabilized && clip.stabilizationMode === "locked" ? "bg-pink-600 text-white" : "bg-neutral-800 hover:bg-neutral-700 text-zinc-300"} cursor-pointer`}
-                          >
-                            <span className="truncate">Locked (Tripod)</span>
-                            <span className="text-[8px] opacity-75">1.28x</span>
-                          </button>
-
-                          {clip.isStabilized && (
-                            <button
-                              onClick={() => handleStabilize(clip.id, "off")}
-                              className="flex items-center justify-center w-full py-1 hover:bg-red-500/10 hover:text-red-400 text-zinc-400 text-[8px] font-bold tracking-tight transition-colors mt-0.5 gap-1 border border-white/5 rounded-md cursor-pointer"
-                            >
-                              Turn off stabilization
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Split Compare Slide Toggle */}
-                        {clip.isStabilized && (
-                          <div className="flex items-center justify-between pt-1.5 border-t border-white/[0.04] mt-1">
-                            <span className="text-[8.5px] text-zinc-400 font-bold uppercase tracking-wider">Compare Split</span>
-                            <button
-                              onClick={() => {
-                                setClips(prev => prev.map(c => c.id === clip.id ? { ...c, compareStabilization: !c.compareStabilization } : c));
-                              }}
-                              className={`w-7 h-4 rounded-full p-0.5 transition-colors ${clip.compareStabilization ? 'bg-emerald-500' : 'bg-neutral-700'} cursor-pointer`}
-                            >
-                              <div className={`w-3 h-3 rounded-full bg-white transition-all transform ${clip.compareStabilization ? 'translate-x-3' : 'translate-x-0'}`} />
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </motion.div>
-                );
-              })()}
+              {activeExpandedMenu === "stabilize" && selectedClipId && (
+                <StabilizePanel
+                  selectedClipId={selectedClipId}
+                  clips={clips}
+                  setClips={setClips}
+                  stabilizingProgress={stabilizingProgress}
+                  handleStabilize={handleStabilize}
+                  renderCopyPasteButtons={renderCopyPasteButtons}
+                  setActiveExpandedMenu={setActiveExpandedMenu}
+                />
+              )}
+              {activeExpandedMenu === "motion" && selectedClipId && (
+                <MotionPanel
+                  selectedClipId={selectedClipId}
+                  clips={clips}
+                  setClips={setClips}
+                  renderCopyPasteButtons={renderCopyPasteButtons}
+                  setActiveExpandedMenu={setActiveExpandedMenu}
+                  showToast={showToast}
+                  playInstantPreview={playInstantPreview}
+                />
+              )}
+              {activeExpandedMenu === "animation" && selectedClipId && (
+                <AnimationPanel
+                  selectedClipId={selectedClipId}
+                  clips={clips}
+                  setClips={setClips}
+                  renderCopyPasteButtons={renderCopyPasteButtons}
+                  setActiveExpandedMenu={setActiveExpandedMenu}
+                  showToast={showToast}
+                  playInstantPreview={playInstantPreview}
+                />
+              )}
               {activeExpandedMenu === "move" && selectedClipId && (
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex flex-col h-auto max-h-[240px] shrink-0 overflow-y-auto scrollbar-hide pb-2"
-                  style={{ width: "218px", paddingTop: "0px", paddingLeft: "0px" }}
-                >
-                  <div className="flex justify-between items-center w-full px-2.5 mb-1 shrink-0">
-                    <span className="text-[9.5px] font-bold text-white/90 uppercase tracking-widest flex items-center gap-1">
-                      <Move size={10} className="text-zinc-400" />
-                      Transform
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      {renderCopyPasteButtons("move")}
-                      <div className="w-px h-3 bg-zinc-700/80"></div>
-                      <button
-                        onClick={() => {
-                          const clip = clips.find((c) => c.id === selectedClipId);
-                          if (clip) {
-                            const clipLayer = layers.find((l) => l.id === clip.layerId);
-                            if (clipLayer?.isLocked) {
-                              setToastMessage("Layer is locked");
-                              setTimeout(() => setToastMessage(null), 2000);
-                              return;
-                            }
-                          }
-                          setClips((prev) =>
-                            prev.map((c) =>
-                              c.id === selectedClipId
-                                ? {
-                                    ...c,
-                                    translateX: 0,
-                                    translateY: 0,
-                                    rotation: 0,
-                                    scale: 1,
-                                  }
-                                : c,
-                            ),
-                          );
-                        }}
-                        className="text-[7.5px] bg-zinc-800 hover:bg-zinc-700 hover:text-white px-1.5 py-0.5 rounded font-black text-zinc-400 uppercase tracking-wider transition-all"
-                      >
-                        Reset
-                      </button>
-                      <div className="w-px h-3 bg-zinc-700/80"></div>
-                      <button
-                        onClick={() => setActiveExpandedMenu(null)}
-                        className="text-emerald-400 hover:text-emerald-300 p-0.5 rounded-full hover:bg-white/5 transition-colors"
-                      >
-                        <Check size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Sleek minimalist tab bar with thin vertical dividers */}
-                  <div className="flex w-full px-2.5 my-1.5 items-center justify-between shrink-0 border-b border-white/[0.04] pb-1">
-                    <button
-                      onClick={() => setActiveTransformTab("position")}
-                      className={`flex-1 py-0.5 text-[8px] font-bold tracking-[0.14em] uppercase transition-colors duration-150 ${
-                        activeTransformTab === "position"
-                          ? "text-white font-black"
-                          : "text-zinc-500 hover:text-zinc-300"
-                      }`}
-                    >
-                      Pos
-                    </button>
-                    <div className="w-[1px] h-2 bg-white/[0.06] shrink-0" />
-                    <button
-                      onClick={() => setActiveTransformTab("scale")}
-                      className={`flex-1 py-0.5 text-[8px] font-bold tracking-[0.14em] uppercase transition-colors duration-150 ${
-                        activeTransformTab === "scale"
-                          ? "text-white font-black"
-                          : "text-zinc-500 hover:text-zinc-300"
-                      }`}
-                    >
-                      Scale
-                    </button>
-                    <div className="w-[1px] h-2 bg-white/[0.06] shrink-0" />
-                    <button
-                      onClick={() => setActiveTransformTab("rotate")}
-                      className={`flex-1 py-0.5 text-[8px] font-bold tracking-[0.14em] uppercase transition-colors duration-150 ${
-                        activeTransformTab === "rotate"
-                          ? "text-white font-black"
-                          : "text-zinc-500 hover:text-zinc-300"
-                      }`}
-                    >
-                      Rotate
-                    </button>
-                  </div>
-
-                  {/* Tab-specific micro-form layout area */}
-                  <div className="px-2.5 pb-0.5 w-full flex flex-col gap-1">
-                    {activeTransformTab === "position" && (
-                      <div
-                        className="grid grid-cols-[74px_1fr] gap-x-1.5 items-center w-full"
-                        style={{ height: "100px", marginTop: "0px" }}
-                      >
-                        {/* Visual D-Pad positioning wheel */}
-                        <div
-                          className="flex flex-col items-center justify-center bg-zinc-900/30 py-1 px-1 rounded-xl border border-white/5 h-full"
-                          style={{ height: "100px", paddingTop: "4px", paddingLeft: "4px", marginTop: "0px", marginLeft: "0px", width: "74px" }}
-                        >
-                          <span className="text-[7px] uppercase tracking-wider text-zinc-500 mb-1 font-extrabold leading-none">Nudge</span>
-                          <div className="relative w-[56px] h-[56px] flex items-center justify-center">
-                            <div className="absolute inset-0 rounded-full border border-white/5 bg-zinc-950/65 shadow-inner"></div>
-                            
-                            {/* Up */}
-                            <button
-                              onClick={() => {
-                                const currentY = currentSelectedClipInterpolatedProps?.translateY || 0;
-                                updateClipsProperties([selectedClipId], { translateY: currentY - 10 });
-                              }}
-                              className="absolute top-[-3px] w-[20px] h-[20px] flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white active:scale-90 transition-all border border-white/10"
-                            >
-                              <ArrowUp size={8} />
-                            </button>
-                            
-                            {/* Left */}
-                            <button
-                              onClick={() => {
-                                const currentX = currentSelectedClipInterpolatedProps?.translateX || 0;
-                                updateClipsProperties([selectedClipId], { translateX: currentX - 10 });
-                              }}
-                              className="absolute left-[-3px] w-[20px] h-[20px] flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white active:scale-90 transition-all border border-white/10"
-                            >
-                              <ArrowUp size={8} className="-rotate-90" />
-                            </button>
-                            
-                            {/* Center Target (Reset Coordinates) */}
-                            <button
-                              onClick={() => {
-                                updateClipsProperties([selectedClipId], { translateX: 0, translateY: 0 });
-                              }}
-                              className="w-4 h-4 rounded-full bg-indigo-500 hover:bg-indigo-400 shadow-md flex items-center justify-center text-white active:scale-95 transition-all z-10"
-                              title="Reset Axis"
-                            >
-                              <div className="w-1 h-1 bg-white rounded-full"></div>
-                            </button>
-                            
-                            {/* Right */}
-                            <button
-                              onClick={() => {
-                                const currentX = currentSelectedClipInterpolatedProps?.translateX || 0;
-                                updateClipsProperties([selectedClipId], { translateX: currentX + 10 });
-                              }}
-                              className="absolute right-[-3px] w-[20px] h-[20px] flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white active:scale-90 transition-all border border-white/10"
-                            >
-                              <ArrowUp size={8} className="rotate-90" />
-                            </button>
-                            
-                            {/* Down */}
-                            <button
-                              onClick={() => {
-                                const currentY = currentSelectedClipInterpolatedProps?.translateY || 0;
-                                updateClipsProperties([selectedClipId], { translateY: currentY + 10 });
-                              }}
-                              className="absolute bottom-[-3px] w-[20px] h-[20px] flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white active:scale-90 transition-all border border-white/10"
-                            >
-                              <ArrowUp size={8} className="rotate-180" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Traditional drag rulers */}
-                        <div
-                          className="flex flex-col gap-1 w-full justify-center"
-                          style={{ height: "100px" }}
-                        >
-                          <CompactRulerControl
-                            label="Axis X"
-                            value={currentSelectedClipInterpolatedProps?.translateX || 0}
-                            onChange={(val) => {
-                              if (selectedClipId) updateClipsProperties([selectedClipId], { translateX: val });
-                            }}
-                            onReset={() => {
-                              if (selectedClipId) updateClipsProperties([selectedClipId], { translateX: 0 });
-                            }}
-                            min={-2000}
-                            max={2000}
-                            step={1}
-                            unit="px"
-                            sensitivity={1.5}
-                            style={{ height: "46px", marginTop: "0px", marginBottom: "0px", paddingTop: "0px", paddingBottom: "0px" }}
-                            rulerStyle={{ height: "24px" }}
-                            labelStyle={{ height: "12px", fontSize: "7.5px" }}
-                            headerStyle={{ height: "12px" }}
-                          />
-                          <CompactRulerControl
-                            label="Axis Y"
-                            value={currentSelectedClipInterpolatedProps?.translateY || 0}
-                            onChange={(val) => {
-                              if (selectedClipId) updateClipsProperties([selectedClipId], { translateY: val });
-                            }}
-                            onReset={() => {
-                              if (selectedClipId) updateClipsProperties([selectedClipId], { translateY: 0 });
-                            }}
-                            min={-2000}
-                            max={2000}
-                            step={1}
-                            unit="px"
-                            sensitivity={1.5}
-                            style={{ height: "46px", marginTop: "2px", marginBottom: "0px", paddingTop: "0px", paddingBottom: "0px" }}
-                            rulerStyle={{ height: "24px" }}
-                            labelStyle={{ height: "12px", fontSize: "7.5px" }}
-                            headerStyle={{ height: "12px" }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {activeTransformTab === "scale" && (
-                      <div className="flex flex-col gap-2 w-full min-h-[96px] justify-center bg-zinc-900/30 px-2 py-2 rounded-xl border border-white/5">
-                        <ScaleRulerControl
-                          value={currentSelectedClipInterpolatedProps?.scale ?? 1}
-                          onChange={(val) => {
-                            if (selectedClipId) updateClipsProperties([selectedClipId], { scale: val });
-                          }}
-                          onReset={() => {
-                            if (selectedClipId) updateClipsProperties([selectedClipId], { scale: 1 });
-                          }}
-                          label="Scale Factor"
-                        />
-                        
-                        {/* Premium snapping presets inline */}
-                        <div className="flex items-center justify-between w-full mt-1 px-0.5">
-                          <span className="text-[7px] uppercase tracking-wider text-zinc-500 font-extrabold pl-0.5">Quick</span>
-                          <div className="flex gap-0.5">
-                            {[0.5, 1.0, 1.5, 2.0, 3.0].map((s) => {
-                              const isSelected = Math.abs((currentSelectedClipInterpolatedProps?.scale ?? 1) - s) < 0.05;
-                              return (
-                                <button
-                                  key={s}
-                                  onClick={() => {
-                                    if (selectedClipId) updateClipsProperties([selectedClipId], { scale: s });
-                                  }}
-                                  className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold tracking-tight transition-all active:scale-95 ${
-                                    isSelected
-                                      ? "bg-indigo-600 text-white shadow-sm border border-indigo-500/30 font-black"
-                                      : "bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border border-white/5"
-                                  }`}
-                                >
-                                  {s.toFixed(1)}x
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {activeTransformTab === "rotate" && (
-                      <div className="grid grid-cols-[68px_1fr] gap-x-1.5 items-center w-full min-h-[96px]">
-                        {/* Visual dial rotation feedback circle */}
-                        <div className="flex flex-col items-center justify-center bg-zinc-900/30 py-1 px-1 rounded-xl border border-white/5 h-full">
-                          <span className="text-[7px] uppercase tracking-wider text-zinc-500 mb-1 font-extrabold leading-none">Dial</span>
-                          
-                          <div className="relative w-[44px] h-[44px] rounded-full border border-white/10 flex items-center justify-center bg-zinc-950/70 shadow-inner">
-                            <div className="absolute inset-0.5 rounded-full bg-gradient-to-b from-zinc-900 to-zinc-950"></div>
-                            
-                            {/* Inner rotational compass needle */}
-                            <div
-                              className="absolute w-7 h-7 rounded-full bg-zinc-800/90 border border-white/10 flex items-center justify-center shadow-md transition-transform duration-200"
-                              style={{ transform: `rotate(${currentSelectedClipInterpolatedProps?.rotation || 0}deg)` }}
-                            >
-                              <div className="absolute top-0.5 w-[1.5px] h-1.5 bg-indigo-500 rounded-full shadow-[0_0_6px_rgba(99,102,241,0.8)]" />
-                              <div className="w-1 h-1 bg-[#121212] rounded-full" />
-                            </div>
-                          </div>
-                          <span className="text-[9px] font-mono font-bold text-white mt-1 leading-none">
-                            {Math.round(currentSelectedClipInterpolatedProps?.rotation || 0)}°
-                          </span>
-                        </div>
-
-                        {/* Angle Ruler & Presets */}
-                        <div className="flex flex-col gap-1.5 w-full justify-center">
-                          <CompactRulerControl
-                            label="Angle"
-                            value={currentSelectedClipInterpolatedProps?.rotation || 0}
-                            onChange={(val) => {
-                              if (selectedClipId) updateClipsProperties([selectedClipId], { rotation: val });
-                            }}
-                            onReset={() => {
-                              if (selectedClipId) updateClipsProperties([selectedClipId], { rotation: 0 });
-                            }}
-                            min={-180}
-                            max={180}
-                            step={1}
-                            unit="°"
-                            sensitivity={0.6}
-                          />
-                          
-                          {/* Common editing preset angles */}
-                          <div className="grid grid-cols-4 gap-0.5">
-                            {[-90, 0, 90, 180].map((angle) => {
-                              const isSelected = Math.round(currentSelectedClipInterpolatedProps?.rotation || 0) === angle;
-                              return (
-                                <button
-                                  key={angle}
-                                  onClick={() => {
-                                    if (selectedClipId) updateClipsProperties([selectedClipId], { rotation: angle });
-                                  }}
-                                  className={`py-0.5 rounded text-[8px] font-mono font-bold tracking-tighter transition-all ${
-                                    isSelected
-                                      ? "bg-indigo-600 text-white shadow border border-indigo-500/20 font-black"
-                                      : "bg-zinc-800/85 hover:bg-zinc-700 text-zinc-400 hover:text-white"
-                                  }`}
-                                >
-                                  {angle}°
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
+                <MovePanel
+                  selectedClipId={selectedClipId}
+                  clips={clips}
+                  layers={layers}
+                  setClips={setClips}
+                  currentSelectedClipInterpolatedProps={currentSelectedClipInterpolatedProps}
+                  updateClipsProperties={updateClipsProperties}
+                  renderCopyPasteButtons={renderCopyPasteButtons}
+                  setActiveExpandedMenu={setActiveExpandedMenu}
+                  setToastMessage={setToastMessage}
+                  activeTransformTab={activeTransformTab}
+                  setActiveTransformTab={setActiveTransformTab}
+                />
               )}
               {activeExpandedMenu === "blend" && selectedClipId && (
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex flex-col w-full h-auto pb-1 pt-0 shrink-0"
-                >
-                  <div className="flex justify-between items-center w-full px-3.5 mb-1.5">
-                    <span className="text-[10px] font-semibold text-white/90">
-                      Blend & Opacity
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {renderCopyPasteButtons("blend")}
-                      <button
-                        onClick={() => setActiveExpandedMenu(null)}
-                        className="text-zinc-400 hover:text-white p-1 rounded-md hover:bg-zinc-805/40 transition flex items-center justify-center"
-                      >
-                        <Check size={14} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Blending Modes */}
-                  <div className="flex items-center gap-1.5 px-2.5 overflow-x-auto scrollbar-hide snap-x pt-0.5 pb-1.5">
-                    {["normal", "multiply", "screen", "overlay", "darken", "lighten", "color-dodge", "color-burn", "hard-light", "soft-light", "difference", "exclusion", "hue", "saturation", "color", "luminosity"].map((mode) => {
-                       const currentMode = clips.find((c) => c.id === selectedClipId)?.mixBlendMode || "normal";
-                       const isActive = currentMode === mode;
-                       return (
-                         <button
-                           key={mode}
-                           onClick={() => {
-                             setClips((prev) =>
-                               prev.map((c) =>
-                                 c.id === selectedClipId ? { ...c, mixBlendMode: mode as any } : c
-                               )
-                             );
-                           }}
-                           className={`shrink-0 px-2 py-1 rounded-full text-[9px] font-semibold capitalize transition-colors snap-start border ${isActive ? "bg-white text-black border-white" : "bg-zinc-800 text-zinc-300 border-white/5 hover:bg-zinc-700"}`}
-                         >
-                           {mode.replace("-", " ")}
-                         </button>
-                       );
-                    })}
-                  </div>
-
-                  {/* Opacity Control */}
-                  <div className="px-3.5 mt-0.5">
-                     <div className="flex justify-between items-center mb-1">
-                        <span className="text-[8px] text-zinc-500 font-bold uppercase pl-0.5">Opacity</span>
-                        <span className="text-[9px] text-zinc-400 font-mono pr-0.5">
-                          {Math.round((currentSelectedClipInterpolatedProps?.opacity ?? 1) * 100)}%
-                        </span>
-                     </div>
-                     <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.01"
-                        value={currentSelectedClipInterpolatedProps?.opacity ?? 1}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          if (selectedClipId) updateClipsProperties([selectedClipId], { opacity: val });
-                        }}
-                        className="w-full accent-white h-0.5 bg-zinc-700 rounded-full appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-2.5 [&::-webkit-slider-thumb]:h-2.5 [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:rounded-full cursor-pointer mt-0.5"
-                     />
-                  </div>
-                </motion.div>
+                <BlendPanel
+                  selectedClipId={selectedClipId}
+                  clips={clips}
+                  setClips={setClips}
+                  currentSelectedClipInterpolatedProps={currentSelectedClipInterpolatedProps}
+                  updateClipsProperties={updateClipsProperties}
+                  renderCopyPasteButtons={renderCopyPasteButtons}
+                  setActiveExpandedMenu={setActiveExpandedMenu}
+                />
               )}
               {activeExpandedMenu === "adjust" && selectedClipId && (
-                <motion.div
-                  layout
-                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
-                  transition={{ duration: 0.2 }}
-                  className="bg-zinc-800 rounded-xl shadow-xl border border-white/10 overflow-hidden w-[217px] p-2"
-                >
-                  <div className="flex justify-between items-center w-full px-2 mb-2">
-                    <span className="text-[10px] font-semibold text-white/90">
-                      Adjustments
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      {renderCopyPasteButtons("adjust")}
-                      <button
-                        onClick={() => setActiveExpandedMenu(null)}
-                        className="text-zinc-400 hover:text-white p-1 rounded-md hover:bg-zinc-700/50 transition flex items-center justify-center"
-                      >
-                        <Check size={14} />
-                      </button>
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2.5 max-h-[220px] overflow-y-auto scrollbar-hide px-2 pb-2">
-                    <CompactRulerControl
-                      label="Exposure"
-                      value={currentSelectedClipInterpolatedProps?.exposure || 0}
-                      onChange={(val) => { if (selectedClipId) updateClipsProperties([selectedClipId], { exposure: val }); }}
-                      onReset={() => { if (selectedClipId) updateClipsProperties([selectedClipId], { exposure: 0 }); }}
-                      min={-100} max={100} step={1} unit="%" sensitivity={1}
-                      size="small"
-                    />
-                    <CompactRulerControl
-                      label="Brightness"
-                      value={currentSelectedClipInterpolatedProps?.brightness ?? 100}
-                      onChange={(val) => { if (selectedClipId) updateClipsProperties([selectedClipId], { brightness: val }); }}
-                      onReset={() => { if (selectedClipId) updateClipsProperties([selectedClipId], { brightness: 100 }); }}
-                      min={0} max={200} step={1} unit="%" sensitivity={1}
-                      size="small"
-                    />
-                    <CompactRulerControl
-                      label="Contrast"
-                      value={currentSelectedClipInterpolatedProps?.contrast ?? 100}
-                      onChange={(val) => { if (selectedClipId) updateClipsProperties([selectedClipId], { contrast: val }); }}
-                      onReset={() => { if (selectedClipId) updateClipsProperties([selectedClipId], { contrast: 100 }); }}
-                      min={0} max={200} step={1} unit="%" sensitivity={1}
-                      size="small"
-                    />
-                    <CompactRulerControl
-                      label="Saturation"
-                      value={currentSelectedClipInterpolatedProps?.saturation ?? 100}
-                      onChange={(val) => { if (selectedClipId) updateClipsProperties([selectedClipId], { saturation: val }); }}
-                      onReset={() => { if (selectedClipId) updateClipsProperties([selectedClipId], { saturation: 100 }); }}
-                      min={0} max={200} step={1} unit="%" sensitivity={1}
-                      size="small"
-                    />
-                    <CompactRulerControl
-                      label="Blur"
-                      value={currentSelectedClipInterpolatedProps?.blur || 0}
-                      onChange={(val) => { if (selectedClipId) updateClipsProperties([selectedClipId], { blur: val }); }}
-                      onReset={() => { if (selectedClipId) updateClipsProperties([selectedClipId], { blur: 0 }); }}
-                      min={0} max={100} step={1} unit="%" sensitivity={0.5}
-                      size="small"
-                    />
-                    <CompactRulerControl
-                      label="Grayscale"
-                      value={currentSelectedClipInterpolatedProps?.grayscale || 0}
-                      onChange={(val) => { if (selectedClipId) updateClipsProperties([selectedClipId], { grayscale: val }); }}
-                      onReset={() => { if (selectedClipId) updateClipsProperties([selectedClipId], { grayscale: 0 }); }}
-                      min={0} max={100} step={1} unit="%" sensitivity={1}
-                      size="small"
-                    />
-                    <CompactRulerControl
-                      label="Sepia"
-                      value={currentSelectedClipInterpolatedProps?.sepia || 0}
-                      onChange={(val) => { if (selectedClipId) updateClipsProperties([selectedClipId], { sepia: val }); }}
-                      onReset={() => { if (selectedClipId) updateClipsProperties([selectedClipId], { sepia: 0 }); }}
-                      min={0} max={100} step={1} unit="%" sensitivity={1}
-                      size="small"
-                    />
-                    <CompactRulerControl
-                      label="Hue Shift"
-                      value={currentSelectedClipInterpolatedProps?.hueRotate || 0}
-                      onChange={(val) => { if (selectedClipId) updateClipsProperties([selectedClipId], { hueRotate: val }); }}
-                      onReset={() => { if (selectedClipId) updateClipsProperties([selectedClipId], { hueRotate: 0 }); }}
-                      min={-180} max={180} step={1} unit="°" sensitivity={1.5}
-                      size="small"
-                    />
-                    <CompactRulerControl
-                      label="Invert"
-                      value={currentSelectedClipInterpolatedProps?.invert || 0}
-                      onChange={(val) => { if (selectedClipId) updateClipsProperties([selectedClipId], { invert: val }); }}
-                      onReset={() => { if (selectedClipId) updateClipsProperties([selectedClipId], { invert: 0 }); }}
-                      min={0} max={100} step={1} unit="%" sensitivity={1}
-                      size="small"
-                    />
-                  </div>
-                </motion.div>
+                <AdjustPanel
+                  selectedClipId={selectedClipId}
+                  currentSelectedClipInterpolatedProps={currentSelectedClipInterpolatedProps}
+                  updateClipsProperties={updateClipsProperties}
+                  renderCopyPasteButtons={renderCopyPasteButtons}
+                  setActiveExpandedMenu={setActiveExpandedMenu}
+                />
               )}
               {activeExpandedMenu === "crop" && selectedClipId && (() => {
                 const selectedClip = clips.find((c) => c.id === selectedClipId);
@@ -9069,20 +8239,6 @@ const renderEditor = () => (
                       );
                     })}
                   </div>
-
-                  {(() => {
-                    const activeClip = clips.find((c) => c.id === selectedClipId);
-                    if (!activeClip || !activeClip.maskType || activeClip.maskType === "none") return null;
-
-                    return (
-                      <div className="mt-4 px-2 py-2.5 rounded-xl bg-purple-500/5 border border-purple-500/10 text-center transition-all">
-                        <span className="text-[10px] text-zinc-300 font-medium select-none flex items-center justify-center gap-1.5 leading-normal pr-1.5">
-                          <Sparkles className="text-purple-400 w-3.5 h-3.5 shrink-0 animate-pulse" />
-                          <span>Hold / Long-tap the mask shape on preview screen to open adjustment sliders</span>
-                        </span>
-                      </div>
-                    );
-                  })()}
                 </motion.div>
               )}
               {activeExpandedMenu === "voiceover" && (
@@ -9577,6 +8733,34 @@ const renderEditor = () => (
                     case 'speed': return (
                       <motion.button key={key} layout className={`p-1 shrink-0 rounded-full transition-colors snap-start flex items-center justify-center ${selectedClipId ? (activeExpandedMenu === "speed" ? "bg-zinc-700 text-white" : "hover:bg-zinc-700 text-white") : "opacity-30"}`} disabled={!selectedClipId} onClick={() => setActiveExpandedMenu(activeExpandedMenu === "speed" ? null : "speed")}><Clock size={14} /></motion.button>
                     );
+                    case 'reverse': {
+                      const selClip = clips.find((c) => c.id === selectedClipId);
+                      const isReversed = selClip?.isReversed || false;
+                      const canReverse = selectedClipId && ["video", "audio"].includes(selClip?.type || "");
+                      return (
+                        <motion.button
+                          key={key}
+                          layout
+                          className={`p-1 shrink-0 rounded-full transition-colors snap-start flex items-center justify-center ${
+                            canReverse
+                              ? isReversed
+                                ? "bg-indigo-600 text-white"
+                                : "hover:bg-zinc-700 text-white"
+                              : "opacity-30 text-zinc-600"
+                          }`}
+                          disabled={!canReverse}
+                          onClick={() => {
+                            if (selectedClipId) {
+                              updateClipsProperties([selectedClipId], { isReversed: !isReversed });
+                              showToast(isReversed ? "Video playback restored to normal" : "Video playback reversed");
+                            }
+                          }}
+                          title="Reverse Video/Audio"
+                        >
+                          <RotateCcw size={14} />
+                        </motion.button>
+                      );
+                    }
                     case 'stabilize': return (
                       <motion.button key={key} layout className={`p-1 shrink-0 rounded-full transition-colors snap-start flex items-center justify-center ${selectedClipId && clips.find(c => c.id === selectedClipId)?.type === "video" ? (activeExpandedMenu === "stabilize" ? "bg-zinc-700 text-white" : "hover:bg-zinc-700 text-white") : "opacity-30"}`} disabled={!selectedClipId || clips.find(c => c.id === selectedClipId)?.type !== "video"} onClick={() => setActiveExpandedMenu(activeExpandedMenu === "stabilize" ? null : "stabilize")}><Activity size={14} /></motion.button>
                     );
@@ -9612,6 +8796,42 @@ const renderEditor = () => (
                     );
                     case 'move': return (
                       <motion.button key={key} layout className={`p-1 shrink-0 rounded-full transition-colors snap-start flex items-center justify-center ${selectedClipId ? (activeExpandedMenu === "move" ? "bg-zinc-700 text-white" : "hover:bg-zinc-700 text-white") : "opacity-30"}`} disabled={!selectedClipId} onClick={() => setActiveExpandedMenu(activeExpandedMenu === "move" ? null : "move")}><Move size={14} /></motion.button>
+                    );
+                    case 'motion': return (
+                      <motion.button
+                        key={key}
+                        layout
+                        className={`p-1 shrink-0 rounded-full transition-colors snap-start flex items-center justify-center ${
+                          selectedClipId
+                            ? activeExpandedMenu === "motion"
+                              ? "bg-indigo-600 text-white"
+                              : "hover:bg-zinc-700 text-white"
+                            : "opacity-30"
+                        }`}
+                        disabled={!selectedClipId}
+                        onClick={() => setActiveExpandedMenu(activeExpandedMenu === "motion" ? null : "motion")}
+                        title="Motion Bar"
+                      >
+                        <span className="text-[11px] font-extrabold font-mono px-0.5 leading-none">M</span>
+                      </motion.button>
+                    );
+                    case 'animation': return (
+                      <motion.button
+                        key={key}
+                        layout
+                        className={`p-1 shrink-0 rounded-full transition-colors snap-start flex items-center justify-center ${
+                          selectedClipId
+                            ? activeExpandedMenu === "animation"
+                              ? "bg-indigo-600 text-white"
+                              : "hover:bg-zinc-700 text-white"
+                            : "opacity-30"
+                        }`}
+                        disabled={!selectedClipId}
+                        onClick={() => setActiveExpandedMenu(activeExpandedMenu === "animation" ? null : "animation")}
+                        title="Animation"
+                      >
+                        <Sparkles size={14} className={activeExpandedMenu === "animation" ? "text-white" : "text-indigo-400"} />
+                      </motion.button>
                     );
                     case 'magic': return (
                       <motion.button key={key} layout className={`p-1 shrink-0 rounded-full transition-colors snap-start flex items-center justify-center ${selectedClipId ? "hover:bg-zinc-700 text-white" : "opacity-30"}`} disabled={!selectedClipId} onClick={handleSmoothSlowMo}><Wand2 size={14} /></motion.button>

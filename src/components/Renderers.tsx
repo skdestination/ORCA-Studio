@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from "react";
 import { Clip } from "../types";
 
-export function VideoRenderer({
+export const VideoRenderer = React.memo(({
   id,
   clip,
   currentTime,
@@ -23,7 +23,7 @@ export function VideoRenderer({
   onPointerDown?: (e: React.PointerEvent) => void;
   onError?: () => void;
   volumeMultiplier?: number;
-}) {
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -39,30 +39,41 @@ export function VideoRenderer({
        effectiveTrimStart = clip.trimStartSeconds / clip.speed;
     }
 
+    const totalSourceSpan = clip.durationSeconds * effectiveSpeed;
     const targetTime = Math.max(0,
-      (currentTime - clip.leftSeconds) * effectiveSpeed +
-      effectiveTrimStart
+      clip.isReversed
+        ? (effectiveTrimStart + totalSourceSpan - (currentTime - clip.leftSeconds) * effectiveSpeed)
+        : (effectiveTrimStart + (currentTime - clip.leftSeconds) * effectiveSpeed)
     );
 
-    if (!isPlaying) {
-      if (Math.abs(video.currentTime - targetTime) > 0.08) {
+    if (clip.isReversed) {
+      if (Math.abs(video.currentTime - targetTime) > 0.04) {
         try {
           video.currentTime = targetTime;
         } catch (e) {}
       }
       if (!video.paused) video.pause();
     } else {
-      if (Math.abs(video.currentTime - targetTime) > 0.5) {
-        try {
-          video.currentTime = targetTime;
-        } catch (e) {}
-      }
-      if (video.paused) {
-        const playPromise = video.play();
-        if (playPromise !== undefined) {
-          playPromise.catch((e) => {
-            if (e.name !== "AbortError") console.error("Video play failed", e);
-          });
+      if (!isPlaying) {
+        if (Math.abs(video.currentTime - targetTime) > 0.08) {
+          try {
+            video.currentTime = targetTime;
+          } catch (e) {}
+        }
+        if (!video.paused) video.pause();
+      } else {
+        if (Math.abs(video.currentTime - targetTime) > 0.5) {
+          try {
+            video.currentTime = targetTime;
+          } catch (e) {}
+        }
+        if (video.paused) {
+          const playPromise = video.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((e) => {
+              if (e.name !== "AbortError") console.error("Video play failed", e);
+            });
+          }
         }
       }
     }
@@ -74,6 +85,8 @@ export function VideoRenderer({
     clip.volume,
     clip.speed,
     clip.opticalFlow,
+    clip.isReversed,
+    clip.durationSeconds,
     volumeMultiplier,
   ]);
 
@@ -91,9 +104,9 @@ export function VideoRenderer({
       onError={onError}
     />
   );
-}
+});
 
-export function AudioRenderer({
+export const AudioRenderer = React.memo(({
   clip,
   currentTime,
   isPlaying,
@@ -107,7 +120,7 @@ export function AudioRenderer({
   isMuted: boolean;
   onError?: () => void;
   volumeMultiplier?: number;
-}) {
+}) => {
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -123,12 +136,14 @@ export function AudioRenderer({
       effectiveTrimStart = clip.trimStartSeconds / clip.speed;
     }
 
+    const totalSourceSpan = clip.durationSeconds * effectiveSpeed;
     const targetTime = Math.max(0,
-      (currentTime - clip.leftSeconds) * effectiveSpeed +
-      effectiveTrimStart
+      clip.isReversed
+        ? (effectiveTrimStart + totalSourceSpan - (currentTime - clip.leftSeconds) * effectiveSpeed)
+        : (effectiveTrimStart + (currentTime - clip.leftSeconds) * effectiveSpeed)
     );
 
-    if (!isPlaying) {
+    if (clip.isReversed) {
       if (Math.abs(audio.currentTime - targetTime) > 0.08) {
         try {
           audio.currentTime = targetTime;
@@ -136,17 +151,26 @@ export function AudioRenderer({
       }
       if (!audio.paused) audio.pause();
     } else {
-      if (Math.abs(audio.currentTime - targetTime) > 0.5) {
-        try {
-          audio.currentTime = targetTime;
-        } catch (e) {}
-      }
-      if (audio.paused) {
-        const playPromise = audio.play();
-        if (playPromise !== undefined) {
-          playPromise.catch((e) => {
-            if (e.name !== "AbortError") console.error("Audio play failed", e);
-          });
+      if (!isPlaying) {
+        if (Math.abs(audio.currentTime - targetTime) > 0.08) {
+          try {
+            audio.currentTime = targetTime;
+          } catch (e) {}
+        }
+        if (!audio.paused) audio.pause();
+      } else {
+        if (Math.abs(audio.currentTime - targetTime) > 0.5) {
+          try {
+            audio.currentTime = targetTime;
+          } catch (e) {}
+        }
+        if (audio.paused) {
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((e) => {
+              if (e.name !== "AbortError") console.error("Audio play failed", e);
+            });
+          }
         }
       }
     }
@@ -158,10 +182,12 @@ export function AudioRenderer({
     clip.volume,
     clip.speed,
     clip.opticalFlow,
+    clip.isReversed,
+    clip.durationSeconds,
     volumeMultiplier,
   ]);
 
   return (
     <audio ref={audioRef} src={clip.src || undefined} muted={isMuted} onError={onError} />
   );
-}
+});

@@ -91,8 +91,36 @@ export function TextEditorMenu({
     reader.readAsDataURL(file);
   };
 
-  const fonts = ["Inter", "Space Grotesk", "sans-serif", "serif", "monospace", "Impact", "Arial", "Georgia", "Courier New"];
-  const animations = ["None", "Fade In", "Slide Up", "Typewriter", "Bounce", "Pop", "Glitch", "Wave"];
+  const fonts = ["Inter", "Space Grotesk", "League Spartan", "Lexend Giga", "Lexend", "sans-serif", "serif", "monospace", "Impact", "Arial", "Georgia", "Courier New"];
+  const animations = [
+    "None",
+    "Fade In",
+    "Slide Up",
+    "Slide Down",
+    "Slide Left",
+    "Slide Right",
+    "Zoom In",
+    "Zoom Out",
+    "Bounce",
+    "Pop",
+    "Glitch",
+    "Wave",
+    "Shake",
+    "Typewriter",
+    "Elastic",
+    "Swing",
+    "Heartbeat",
+    "Reveal Left",
+    "Reveal Right",
+    "Blur Fade",
+    "Blur Slide Up",
+    "Pulse Glow",
+    "Tracking (Expand)",
+    "Ramp Up",
+    "Jello",
+    "Fall Down",
+    "Roll In"
+  ];
   
   const paletteColors = ["#ffffff", "#dbeafe", "#94a3b8", "#475569", "#18181b", "#eab308"];
 
@@ -227,7 +255,7 @@ export function TextEditorMenu({
           )}
 
           {activeTab === 'style' && (
-            <motion.div key="style" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="flex w-full items-start justify-between">
+            <motion.div key="style" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }} className="flex w-full items-start justify-between h-full max-h-[76px] overflow-hidden">
               
               {/* Left Side: Controls */}
               <div className="flex flex-col flex-1 max-w-[125px] gap-1.5 mt-0.5 pr-1">
@@ -405,31 +433,41 @@ export function TextEditorMenu({
       </div>
 
       {/* Bottom Sub-Tabs (TEXT, STROKE, GLOW, SPACING, SHADOW) */}
-      {activeTab === 'style' && (
-        <div className="flex items-center justify-between w-full mt-0.5 pb-1">
-          {subTabs.map(tab => {
-            const isActive = activeSubTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => { setActiveTab('style'); setActiveSubTab(tab.id); }}
-                className={`relative flex items-center justify-center px-1.5 py-1.5 sm:px-2 transition-colors duration-200 cursor-pointer outline-none rounded-lg border ${
-                  isActive ? 'border-[#3f3f46] bg-[#27272a]/60' : 'border-transparent hover:bg-[#27272a]/30'
-                }`}
-              >
-                <span className={`text-[6px] sm:text-[6.5px] tracking-[0.1em] font-medium uppercase transition-colors whitespace-nowrap ${
-                  isActive ? 'text-[#f4f4f5]' : 'text-[#71717a]'
-                }`}>
-                  {tab.label}
-                </span>
-                {isActive && (
-                  <div className="absolute -bottom-[2px] left-[20%] right-[20%] h-[1.5px] bg-[#ef4444] rounded-t-sm" />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <div className="h-[32px] w-full flex items-center justify-between mt-0.5 pb-1 shrink-0 relative overflow-hidden">
+        <AnimatePresence mode="wait">
+          {activeTab === 'style' && (
+            <motion.div 
+              key="subtabs-container"
+              initial={{ opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 3 }}
+              className="flex items-center justify-between w-full h-full"
+            >
+              {subTabs.map(tab => {
+                const isActive = activeSubTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => { setActiveTab('style'); setActiveSubTab(tab.id); }}
+                    className={`relative flex items-center justify-center px-1.5 py-1 sm:px-2 transition-colors duration-200 cursor-pointer outline-none rounded-lg border ${
+                      isActive ? 'border-[#3f3f46] bg-[#27272a]/60' : 'border-transparent hover:bg-[#27272a]/30'
+                    }`}
+                  >
+                    <span className={`text-[6px] sm:text-[6.5px] tracking-[0.1em] font-medium uppercase transition-colors whitespace-nowrap ${
+                      isActive ? 'text-[#f4f4f5]' : 'text-[#71717a]'
+                    }`}>
+                      {tab.label}
+                    </span>
+                    {isActive && (
+                      <div className="absolute -bottom-[2px] left-[20%] right-[20%] h-[1.5px] bg-[#ef4444] rounded-t-sm" />
+                    )}
+                  </button>
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </motion.div>
   );
 }
