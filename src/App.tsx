@@ -86,6 +86,7 @@ import { TextRenderer } from "./components/TextRenderer";
 import { ExportOverlay } from "./components/ExportOverlay";
 
 import { Screen, Layer, Keyframe, Clip, Project } from "./types";
+import { TimelineBridge } from "./lib/timelineBridge";
 import { getInterpolatedProps } from "./lib/utils";
 import { VideoRenderer, AudioRenderer } from "./components/Renderers";
 import { MinusIcon, CompactRulerControl, SpeedRulerControl, ScaleRulerControl } from "./components/Controls";
@@ -1980,24 +1981,22 @@ export default function App() {
     return () => clearTimeout(timeout);
   }, [layers, clips]);
 
-  const undo = () => {
-    if (historyIndex > 0) {
-      isUndoRedoAction.current = true;
-      const prev = history[historyIndex - 1];
-      setLayers(prev.layers);
-      setClips(prev.clips);
-      setHistoryIndex(historyIndex - 1);
-    }
+  const undo = async () => {
+    isUndoRedoAction.current = true;
+    await TimelineBridge.undo();
+    const state = await TimelineBridge.getTimelineState();
+    setLayers(state.layers);
+    setClips(state.clips);
+    setSelectedClipIds(state.selectedClipIds);
   };
 
-  const redo = () => {
-    if (historyIndex < history.length - 1) {
-      isUndoRedoAction.current = true;
-      const next = history[historyIndex + 1];
-      setLayers(next.layers);
-      setClips(next.clips);
-      setHistoryIndex(historyIndex + 1);
-    }
+  const redo = async () => {
+    isUndoRedoAction.current = true;
+    await TimelineBridge.redo();
+    const state = await TimelineBridge.getTimelineState();
+    setLayers(state.layers);
+    setClips(state.clips);
+    setSelectedClipIds(state.selectedClipIds);
   };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -2848,6 +2847,15 @@ export default function App() {
     setCurrentTime(0);
     setZoomLevel(1);
     setCurrentScreen("editor");
+
+    // Initialize native/fallback timeline engine
+    await TimelineBridge.initTimeline({
+      ...project,
+      clips: resolvedClips,
+      layers: resolvedLayers,
+      currentTime: 0,
+      zoomLevel: 1
+    });
   };
 
   // Auto-save
@@ -2900,6 +2908,18 @@ export default function App() {
     }
   }, [layers, clips, currentProjectRatio, activeProjectId, currentScreen]);
 
+  // Synchronize clips and layers to Native Timeline Engine on any React state change!
+  useEffect(() => {
+    if (currentScreen === "editor" && activeProjectId) {
+      TimelineBridge.initTimeline({
+        id: activeProjectId,
+        ratio: currentProjectRatio,
+        clips,
+        layers
+      });
+    }
+  }, [layers, clips, currentProjectRatio, activeProjectId, currentScreen]);
+
   const addMediaClip = (
     id: string,
     type: "video" | "audio" | "image",
@@ -2912,36 +2932,37 @@ export default function App() {
     fps?: number,
   ) => {
     const newLayerId = "L_" + id;
-    setLayers((prev) => {
-      const maxOrder = prev.reduce((max, l) => Math.max(max, l.order), -1);
-      return [
-        ...prev,
-        {
-          id: newLayerId,
-          order: maxOrder + 1,
-          isHidden: false,
-          isMuted: false,
-        },
-      ];
-    });
+    const newLayer = {
+      id: newLayerId,
+      order: layers.length,
+      isHidden: false,
+      isMuted: false,
+    };
+    const newClip: Clip = {
+      id,
+      layerId: newLayerId,
+      type,
+      src,
+      fileId,
+      leftSeconds: startAtTime,
+      durationSeconds: duration,
+      originalDurationSeconds: duration,
+      trimStartSeconds: 0,
+      width,
+      height,
+      fps,
+    };
 
-    setClips((prev) => [
-      ...prev,
-      {
-        id,
-        layerId: newLayerId,
-        type,
-        src,
-        fileId,
-        leftSeconds: startAtTime,
-        durationSeconds: duration,
-        originalDurationSeconds: duration,
-        trimStartSeconds: 0,
-        width,
-        height,
-        fps,
-      },
-    ]);
+    setLayers((prev) => [...prev, newLayer]);
+    setClips((prev) => [...prev, newClip]);
+
+    // Initialize native/fallback timeline engine with updated state
+    TimelineBridge.initTimeline({
+      id: activeProjectId,
+      ratio: currentProjectRatio,
+      clips: [...clips, newClip],
+      layers: [...layers, newLayer]
+    });
   };
 
   // Using global sampleMedia static arrays to optimize memory and component allocations
@@ -3146,11 +3167,12 @@ export default function App() {
     }
   };
 
-  function deleteSelectedClip() {
+  async function deleteSelectedClip() {
     if (selectedClipIds.length > 0) {
-      setClips((prev) => prev.filter((c) => !selectedClipIds.includes(c.id)));
+      await TimelineBridge.deleteClip(selectedClipIds);
+      const state = await TimelineBridge.getTimelineState();
+      setClips(state.clips);
       setSelectedClipIds([]);
-      // Optional: Cleanup empty layers
     }
   }
 
@@ -3228,7 +3250,7 @@ export default function App() {
     }));
   }, [selectedClipId, currentTime, activeExpandedMenu]);
 
-  function splitSelectedClip() {
+  async function splitSelectedClip() {
     if (!timelineScrollRef.current) return;
     const playheadTime = currentTimeRef.current;
     
@@ -3249,50 +3271,26 @@ export default function App() {
     }
 
     const newClipId = "C_" + Math.random().toString(36).substring(2, 9);
-    const speed = clip.speed || 1.0;
-    const fullOrgDur = clip.originalDurationSeconds !== undefined ? clip.originalDurationSeconds : clip.durationSeconds * speed;
+    
+    // Perform split inside native/fallback timeline engine!
+    await TimelineBridge.splitClip(clip.id, playheadTime, newClipId);
 
-    // Filter and shift keyframes for both parts with deep copies
-    const kfs1 = clip.keyframes
-      ? clip.keyframes
-          .filter((kf) => kf.timeOffset < firstDuration)
-          .map((kf) => ({
-            ...kf,
-            properties: kf.properties ? { ...kf.properties } : {},
-          }))
-      : [];
-    const kfs2 = clip.keyframes
-      ? clip.keyframes
-          .filter((kf) => kf.timeOffset >= firstDuration)
-          .map((kf) => ({
-            ...kf,
-            timeOffset: kf.timeOffset - firstDuration,
-            properties: kf.properties ? { ...kf.properties } : {},
-          }))
-      : [];
-
-    setClips((prev) => {
-      const rest = prev.filter((c) => c.id !== clip.id);
-      const newClip1 = {
-        ...clip,
-        cropRect: clip.cropRect ? { ...clip.cropRect } : undefined,
-        durationSeconds: firstDuration,
-        originalDurationSeconds: fullOrgDur,
-        keyframes: kfs1,
-      };
-      const newClip2 = {
-        ...clip,
-        id: newClipId,
-        cropRect: clip.cropRect ? { ...clip.cropRect } : undefined,
-        leftSeconds: playheadTime,
-        trimStartSeconds: clip.trimStartSeconds + firstDuration * speed,
-        durationSeconds: clip.durationSeconds - firstDuration,
-        originalDurationSeconds: fullOrgDur,
-        keyframes: kfs2,
-      };
-      return [...rest, newClip1, newClip2];
+    // Retrieve state
+    const newState = await TimelineBridge.getTimelineState();
+    const kfs1: any[] = [];
+    const kfs2: any[] = [];
+    const updatedClips = newState.clips.map(c => {
+      if (c.id === clip!.id) {
+        return { ...c, keyframes: kfs1 };
+      } else if (c.id === newClipId) {
+        return { ...c, keyframes: kfs2 };
+      }
+      return c;
     });
-  };
+
+    setClips(updatedClips);
+    setSelectedClipId(newClipId); // select the split part
+  }
 
   const formatTime = (seconds: number) => {
     const s = Math.max(0, seconds);
@@ -3610,7 +3608,7 @@ export default function App() {
     }, 100);
   };
 
-  const handlePaste = () => {
+  const handlePaste = async () => {
     if (!copiedClip || !pastePopup) return;
 
     let targetLayerId = pastePopup.layerId;
@@ -3631,26 +3629,7 @@ export default function App() {
       setLayers(newLayers);
     }
 
-    let targetTime = pastePopup.time;
-    const layerClips = clips.filter((c) => c.layerId === targetLayerId);
-
-    // Check if targetTime overlaps any existing clip on this layer
-    const overlappingClip = layerClips.find(
-      (c) =>
-        targetTime >= c.leftSeconds &&
-        targetTime < c.leftSeconds + c.durationSeconds,
-    );
-    if (overlappingClip) {
-      const midPoint =
-        overlappingClip.leftSeconds + overlappingClip.durationSeconds / 2;
-      if (targetTime < midPoint) {
-        targetTime = overlappingClip.leftSeconds - copiedClip.durationSeconds;
-        if (targetTime < 0) targetTime = 0;
-      } else {
-        targetTime =
-          overlappingClip.leftSeconds + overlappingClip.durationSeconds;
-      }
-    }
+    let targetTime = await TimelineBridge.resolvePaste(targetLayerId, pastePopup.time, copiedClip.durationSeconds);
 
     const newClip: Clip = {
       ...copiedClip,
@@ -4050,7 +4029,7 @@ export default function App() {
     let fallbackLayerId = clip.layerId;
     let createdLayerId: string | null = null;
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
+    const handlePointerMove = async (moveEvent: PointerEvent) => {
       const deltaX = moveEvent.clientX - startX;
       const deltaY = moveEvent.clientY - startY;
 
@@ -4092,32 +4071,7 @@ export default function App() {
 
       // --- MAGNETIC SNAPPING (Only snap the clip being dragged) ---
       if (snappingEnabled) {
-        const SNAP_THRESHOLD_SECONDS = 15 / currentPixelsPerSecondRef.current;
-        let minDistance = SNAP_THRESHOLD_SECONDS;
-        let snappedLeftSeconds = newLeftSeconds;
-
-        const snapPoints = [0, currentTime];
-        clips.forEach((c) => {
-          if (!activeSelectedIds.includes(c.id)) {
-            snapPoints.push(c.leftSeconds);
-            snapPoints.push(c.leftSeconds + c.durationSeconds);
-          }
-        });
-
-        snapPoints.forEach(sp => {
-           const distLeft = Math.abs(sp - newLeftSeconds);
-           if (distLeft < minDistance) {
-               minDistance = distLeft;
-               snappedLeftSeconds = sp;
-           }
-           const newRight = newLeftSeconds + clip.durationSeconds;
-           const distRight = Math.abs(sp - newRight);
-           if (distRight < minDistance) {
-               minDistance = distRight;
-               snappedLeftSeconds = sp - clip.durationSeconds;
-           }
-        });
-        newLeftSeconds = snappedLeftSeconds;
+        newLeftSeconds = await TimelineBridge.snapDrag(newLeftSeconds, clip.durationSeconds, activeSelectedIds, currentTime);
       }
       
       const finalDeltaSeconds = newLeftSeconds - initialLeftSeconds;
@@ -4150,7 +4104,9 @@ export default function App() {
           createdLayerId = newId;
           setLayers((prev) => {
             const minOrder = prev.length > 0 ? Math.min(...prev.map((l) => l.order)) : 0;
-            return [...prev, { id: newId, order: minOrder - 1, isMuted: false, isHidden: false }];
+            const updated = [...prev, { id: newId, order: minOrder - 1, isMuted: false, isHidden: false }];
+            TimelineBridge.initTimeline({ id: activeProjectId, ratio: currentProjectRatio, clips, layers: updated });
+            return updated;
           });
           targetLayerId = newId;
           setTimeout(() => { isCreatingLayer = false; }, 200);
@@ -4160,118 +4116,17 @@ export default function App() {
         if (createdLayerId && targetLayerId !== createdLayerId) {
           const idToDelete = createdLayerId;
           createdLayerId = null;
-          setLayers((prev) => prev.filter((l) => l.id !== idToDelete));
+          setLayers((prev) => {
+            const updated = prev.filter((l) => l.id !== idToDelete);
+            TimelineBridge.initTimeline({ id: activeProjectId, ratio: currentProjectRatio, clips, layers: updated });
+            return updated;
+          });
         }
       }
 
-      setClips((prevClips) => {
-        // Evaluate horizontal bounds to prevent crossing x=0
-        let effectiveDelta = finalDeltaSeconds;
-        activeSelectedIds.forEach(id => {
-          const init = initialClipsData.get(id);
-          if (init && init.left + effectiveDelta < 0) {
-            effectiveDelta = -init.left;
-          }
-        });
-
-        if (activeSelectedIds.length === 1) {
-          // Single clip check for overlaps with targetLayerId
-          const potentialLeft = Math.max(0, initialLeftSeconds + effectiveDelta);
-          const hasOverlapTarget = prevClips.some(
-            (c) =>
-              c.layerId === targetLayerId &&
-              !activeSelectedIds.includes(c.id) &&
-              potentialLeft < c.leftSeconds + c.durationSeconds &&
-              potentialLeft + clip.durationSeconds > c.leftSeconds,
-          );
-
-          if (!hasOverlapTarget) {
-            // No overlap on target layer, move is completely allowed
-            fallbackLayerId = targetLayerId;
-            return prevClips.map((c) =>
-              c.id === clip.id
-                ? { ...c, leftSeconds: potentialLeft, layerId: targetLayerId }
-                : c,
-            );
-          } else {
-            // There is an overlap on the target layer. Let's see if we can move horizontally on fallback layer
-            const hasOverlapFallback = prevClips.some(
-              (c) =>
-                c.layerId === fallbackLayerId &&
-                !activeSelectedIds.includes(c.id) &&
-                potentialLeft < c.leftSeconds + c.durationSeconds &&
-                potentialLeft + clip.durationSeconds > c.leftSeconds,
-            );
-            if (!hasOverlapFallback) {
-              // No overlap on fallback layer, horizontal move allowed (vertical drag blocked)
-              return prevClips.map((c) =>
-                c.id === clip.id
-                  ? { ...c, leftSeconds: potentialLeft, layerId: fallbackLayerId }
-                  : c,
-              );
-            } else {
-              // Collision on both layers. Completely block drag update for this position to prevent overlap
-              return prevClips;
-            }
-          }
-        } else {
-          // Multi clip - apply both horizontal delta and relative vertical layer offset!
-          const actClipInit = initialClipsData.get(clip.id);
-          const sortedLayers = [...layers].sort((a, b) => b.order - a.order);
-          const originalLayerIndex = actClipInit ? sortedLayers.findIndex(l => l.id === actClipInit.layer) : -1;
-          const targetLayerIndex = sortedLayers.findIndex(l => l.id === targetLayerId);
-          const layerOffset = (originalLayerIndex !== -1 && targetLayerIndex !== -1) ? (targetLayerIndex - originalLayerIndex) : 0;
-
-          // Check if ANY of the selected clips would overlap with any non-selected clip
-          const wouldOverlap = prevClips.some((c) => {
-            if (activeSelectedIds.includes(c.id)) return false;
-
-            return activeSelectedIds.some((selId) => {
-              const selClip = prevClips.find(sc => sc.id === selId);
-              const init = initialClipsData.get(selId);
-              if (!selClip || !init) return false;
-
-              const proposedLeft = Math.max(0, init.left + effectiveDelta);
-              const initLayerIndex = sortedLayers.findIndex(l => l.id === init.layer);
-              let proposedLayerId = init.layer;
-              if (initLayerIndex !== -1 && layerOffset !== 0) {
-                const targetIndex = Math.max(0, Math.min(sortedLayers.length - 1, initLayerIndex + layerOffset));
-                proposedLayerId = sortedLayers[targetIndex].id;
-              }
-
-              return (
-                c.layerId === proposedLayerId &&
-                proposedLeft < c.leftSeconds + c.durationSeconds &&
-                proposedLeft + selClip.durationSeconds > c.leftSeconds
-              );
-            });
-          });
-
-          if (wouldOverlap) {
-            // Collision detected for at least one clip in the selection, block the entire drag update
-            return prevClips;
-          }
-
-          return prevClips.map((c) => {
-            if (activeSelectedIds.includes(c.id)) {
-              const init = initialClipsData.get(c.id);
-              if (init) {
-                const initLayerIndex = sortedLayers.findIndex(l => l.id === init.layer);
-                let finalLayerId = init.layer;
-                if (initLayerIndex !== -1 && layerOffset !== 0) {
-                  const targetIndex = Math.max(0, Math.min(sortedLayers.length - 1, initLayerIndex + layerOffset));
-                  finalLayerId = sortedLayers[targetIndex].id;
-                }
-                return { 
-                  ...c, 
-                  leftSeconds: Math.max(0, init.left + effectiveDelta),
-                  layerId: finalLayerId
-                };
-              }
-            }
-            return c;
-          });
-        }
+      TimelineBridge.moveClip(activeSelectedIds, finalDeltaSeconds, targetLayerId, fallbackLayerId).then(async () => {
+        const state = await TimelineBridge.getTimelineState();
+        setClips(state.clips);
       });
     };
 
@@ -4330,7 +4185,7 @@ export default function App() {
     const innerRectInit = document.getElementById("timeline-inner")?.getBoundingClientRect();
     const initialClickCanvasX = innerRectInit ? (startX - innerRectInit.left) : startX;
 
-    const handlePointerMove = (moveEvent: PointerEvent) => {
+    const handlePointerMove = async (moveEvent: PointerEvent) => {
       // --- AUTO SCROLL WHEN TRIMMING NEAR EDGES ---
       if (timelineScrollRef.current) {
         const container = timelineScrollRef.current;
@@ -4352,400 +4207,50 @@ export default function App() {
         ? (currentClickCanvasX - initialClickCanvasX) / currentPixelsPerSecondRef.current
         : deltaX / currentPixelsPerSecondRef.current;
 
-      let nextTime = currentTime;
+      // Call Native/Fallback Trimming!
+      await TimelineBridge.trimClip(clip.id, side, deltaSeconds, snappingEnabled, currentTime);
 
-      if (side === "left") {
-        if (clip.type === "image" || clip.type === "text") {
-          let newLeft = Math.max(0, initialLeftSeconds + deltaSeconds);
-          if (snappingEnabled) {
-            const SNAP_THRESHOLD_SECONDS = 15 / currentPixelsPerSecondRef.current;
-            let minDistance = SNAP_THRESHOLD_SECONDS;
-            let snappedLeft = newLeft;
-            const snapPoints = [0, currentTime];
-            clips.forEach((other) => {
-              if (other.id !== clip.id) {
-                snapPoints.push(other.leftSeconds);
-                snapPoints.push(other.leftSeconds + other.durationSeconds);
-              }
-            });
-            snapPoints.forEach((sp) => {
-              const dist = Math.abs(sp - newLeft);
-              if (dist < minDistance) {
-                minDistance = dist;
-                snappedLeft = sp;
-              }
-            });
-            newLeft = snappedLeft;
-          }
-          const change = newLeft - initialLeftSeconds;
-          const newDuration = Math.max(0.5, initialDurationSeconds - change);
-          if (newDuration >= 0.5) {
-            const hasOverlap = clips.some((other) =>
-              other.id !== clip.id &&
-              other.layerId === clip.layerId &&
-              newLeft < other.leftSeconds + other.durationSeconds &&
-              newLeft + newDuration > other.leftSeconds
-            );
-            if (!hasOverlap) {
-              nextTime = newLeft;
-            }
-          }
+      // Fetch the updated clip configuration
+      const state = await TimelineBridge.getTimelineState();
+      const trimmedClip = state.clips.find(c => c.id === clip.id);
+
+      if (trimmedClip) {
+        // Apply keyframes filtering/shifting
+        let finalClips = state.clips;
+
+        if (side === "left") {
+          const change = trimmedClip.leftSeconds - initialLeftSeconds;
+          const updatedKeyframes = clip.keyframes
+            ? clip.keyframes
+                .filter((kf) => kf.timeOffset >= change)
+                .map((kf) => ({
+                  ...kf,
+                  timeOffset: kf.timeOffset - change,
+                }))
+            : [];
+          finalClips = state.clips.map(c => c.id === clip.id ? { ...c, keyframes: updatedKeyframes } : c);
         } else {
-          let newLeft = Math.max(0, initialLeftSeconds + deltaSeconds);
-          if (snappingEnabled) {
-            const SNAP_THRESHOLD_SECONDS = 15 / currentPixelsPerSecondRef.current;
-            let minDistance = SNAP_THRESHOLD_SECONDS;
-            let snappedLeft = newLeft;
-            const snapPoints = [0, currentTime];
-            clips.forEach((other) => {
-              if (other.id !== clip.id) {
-                snapPoints.push(other.leftSeconds);
-                snapPoints.push(other.leftSeconds + other.durationSeconds);
-              }
-            });
-            snapPoints.forEach((sp) => {
-              const dist = Math.abs(sp - newLeft);
-              if (dist < minDistance) {
-                minDistance = dist;
-                snappedLeft = sp;
-              }
-            });
-            newLeft = snappedLeft;
-          }
-
-          const speed = clip.speed || 1.0;
-          const change = newLeft - initialLeftSeconds;
-          let newTrimStart = initialTrimStartSeconds + change * speed;
-          let newDuration = initialDurationSeconds - change;
-          let finalLeft = newLeft;
-
-          if (newTrimStart < 0) {
-            newTrimStart = 0;
-            finalLeft = initialLeftSeconds - initialTrimStartSeconds / speed;
-            newDuration = initialDurationSeconds + initialTrimStartSeconds / speed;
-          }
-
-          if (newDuration >= 0.5) {
-            const hasOverlap = clips.some((other) =>
-              other.id !== clip.id &&
-              other.layerId === clip.layerId &&
-              Math.max(0, finalLeft) < other.leftSeconds + other.durationSeconds &&
-              Math.max(0, finalLeft) + newDuration > other.leftSeconds
-            );
-            if (!hasOverlap) {
-              nextTime = Math.max(0, finalLeft);
-            }
-          }
+          const updatedKeyframes = clip.keyframes
+            ? clip.keyframes.filter((kf) => kf.timeOffset <= trimmedClip.durationSeconds)
+            : [];
+          finalClips = state.clips.map(c => c.id === clip.id ? { ...c, keyframes: updatedKeyframes } : c);
         }
-      } else {
-        const maxAvailableDuration = clip.originalDurationSeconds !== undefined ? clip.originalDurationSeconds : Number.MAX_VALUE;
-        if (clip.type === "image" || clip.type === "text") {
-          let newDuration = Math.max(0.5, initialDurationSeconds + deltaSeconds);
-          if (snappingEnabled) {
-            let newRight = initialLeftSeconds + newDuration;
-            const SNAP_THRESHOLD_SECONDS = 15 / currentPixelsPerSecondRef.current;
-            let minDistance = SNAP_THRESHOLD_SECONDS;
-            let snappedRight = newRight;
-            const snapPoints = [currentTime];
-            clips.forEach((other) => {
-              if (other.id !== clip.id) {
-                snapPoints.push(other.leftSeconds);
-                snapPoints.push(other.leftSeconds + other.durationSeconds);
-              }
-            });
-            snapPoints.forEach((sp) => {
-              const dist = Math.abs(sp - newRight);
-              if (dist < minDistance) {
-                minDistance = dist;
-                snappedRight = sp;
-              }
-            });
-            newDuration = Math.max(0.5, snappedRight - initialLeftSeconds);
-          }
 
-          const hasOverlap = clips.some((other) =>
-            other.id !== clip.id &&
-            other.layerId === clip.layerId &&
-            initialLeftSeconds < other.leftSeconds + other.durationSeconds &&
-            initialLeftSeconds + newDuration > other.leftSeconds
-          );
-          if (!hasOverlap) {
-            nextTime = initialLeftSeconds + newDuration;
-          }
+        // Auto-update playback playhead time
+        let nextTime = currentTime;
+        if (side === "left") {
+          nextTime = trimmedClip.leftSeconds;
         } else {
-          const speed = clip.speed || 1.0;
-          let newDuration = Math.max(0.5, initialDurationSeconds + deltaSeconds);
-          if (initialTrimStartSeconds + newDuration * speed > maxAvailableDuration) {
-            newDuration = (maxAvailableDuration - initialTrimStartSeconds) / speed;
-          }
-          if (snappingEnabled) {
-            let newRight = initialLeftSeconds + newDuration;
-            const SNAP_THRESHOLD_SECONDS = 15 / currentPixelsPerSecondRef.current;
-            let minDistance = SNAP_THRESHOLD_SECONDS;
-            let snappedRight = newRight;
-            const snapPoints = [currentTime];
-            clips.forEach((other) => {
-              if (other.id !== clip.id) {
-                snapPoints.push(other.leftSeconds);
-                snapPoints.push(other.leftSeconds + other.durationSeconds);
-              }
-            });
-            snapPoints.forEach((sp) => {
-              const dist = Math.abs(sp - newRight);
-              if (dist < minDistance) {
-                minDistance = dist;
-                snappedRight = sp;
-              }
-            });
-            newDuration = Math.max(0.5, snappedRight - initialLeftSeconds);
-          }
-          if (initialTrimStartSeconds + newDuration * speed > maxAvailableDuration) {
-            newDuration = (maxAvailableDuration - initialTrimStartSeconds) / speed;
-          }
-
-          const hasOverlap = clips.some((other) =>
-            other.id !== clip.id &&
-            other.layerId === clip.layerId &&
-            initialLeftSeconds < other.leftSeconds + other.durationSeconds &&
-            initialLeftSeconds + newDuration > other.leftSeconds
-          );
-          if (!hasOverlap) {
-            nextTime = initialLeftSeconds + newDuration;
-          }
+          nextTime = trimmedClip.leftSeconds + trimmedClip.durationSeconds;
         }
+
+        setCurrentTime(nextTime);
+        if (timelineScrollRef.current) {
+          timelineScrollRef.current.scrollLeft = nextTime * currentPixelsPerSecondRef.current;
+        }
+
+        setClips(finalClips);
       }
-
-      setCurrentTime(nextTime);
-      if (timelineScrollRef.current) {
-        timelineScrollRef.current.scrollLeft = nextTime * currentPixelsPerSecondRef.current;
-      }
-
-      setClips((prev) =>
-        prev.map((c) => {
-          if (c.id !== clip.id) return c;
-          
-          const maxAvailableDuration = c.originalDurationSeconds !== undefined ? c.originalDurationSeconds : Number.MAX_VALUE;
-
-          if (side === "left") {
-            if (c.type === "image" || c.type === "text") {
-              let newLeft = Math.max(0, initialLeftSeconds + deltaSeconds);
-              
-              if (snappingEnabled) {
-                const SNAP_THRESHOLD_SECONDS = 15 / currentPixelsPerSecondRef.current;
-                let minDistance = SNAP_THRESHOLD_SECONDS;
-                let snappedLeft = newLeft;
-                const snapPoints = [0, currentTime];
-                prev.forEach(other => {
-                  if (other.id !== clip.id) {
-                    snapPoints.push(other.leftSeconds);
-                    snapPoints.push(other.leftSeconds + other.durationSeconds);
-                  }
-                });
-                snapPoints.forEach(sp => {
-                  const dist = Math.abs(sp - newLeft);
-                  if (dist < minDistance) {
-                    minDistance = dist;
-                    snappedLeft = sp;
-                  }
-                });
-                newLeft = snappedLeft;
-              }
-
-              const change = newLeft - initialLeftSeconds;
-              const newDuration = Math.max(0.5, initialDurationSeconds - change);
-              if (newDuration < 0.5) return c; // Clamp
-
-              // Collision check
-              const hasOverlap = prev.some(other =>
-                other.id !== clip.id &&
-                other.layerId === clip.layerId &&
-                newLeft < other.leftSeconds + other.durationSeconds &&
-                newLeft + newDuration > other.leftSeconds
-              );
-              if (hasOverlap) return c;
-
-              const updatedKeyframes = c.keyframes
-                ? c.keyframes
-                    .filter((kf) => kf.timeOffset >= change)
-                    .map((kf) => ({
-                      ...kf,
-                      timeOffset: kf.timeOffset - change,
-                    }))
-                : [];
-
-              return {
-                ...c,
-                leftSeconds: newLeft,
-                durationSeconds: newDuration,
-                trimStartSeconds: 0,
-                keyframes: updatedKeyframes,
-                opticalFlow: undefined,
-              };
-            }
-
-            let newLeft = Math.max(0, initialLeftSeconds + deltaSeconds);
-            
-            // Snap left edge
-            if (snappingEnabled) {
-              const SNAP_THRESHOLD_SECONDS = 15 / currentPixelsPerSecondRef.current;
-              let minDistance = SNAP_THRESHOLD_SECONDS;
-              let snappedLeft = newLeft;
-              const snapPoints = [0, currentTime];
-              prev.forEach(other => {
-                if (other.id !== clip.id) {
-                  snapPoints.push(other.leftSeconds);
-                  snapPoints.push(other.leftSeconds + other.durationSeconds);
-                }
-              });
-              snapPoints.forEach(sp => {
-                const dist = Math.abs(sp - newLeft);
-                if (dist < minDistance) {
-                  minDistance = dist;
-                  snappedLeft = sp;
-                }
-              });
-              newLeft = snappedLeft;
-            }
-
-            const speed = c.speed || 1.0;
-            const change = newLeft - initialLeftSeconds;
-            let newTrimStart = initialTrimStartSeconds + change * speed;
-            let newDuration = initialDurationSeconds - change;
-            let finalLeft = newLeft;
-
-            if (newTrimStart < 0) {
-              newTrimStart = 0;
-              finalLeft = initialLeftSeconds - initialTrimStartSeconds / speed;
-              newDuration = initialDurationSeconds + initialTrimStartSeconds / speed;
-            }
-
-            if (newDuration < 0.5) return c; // Clamp
-
-            // Collision check
-            const hasOverlap = prev.some(other =>
-              other.id !== clip.id &&
-              other.layerId === clip.layerId &&
-              Math.max(0, finalLeft) < other.leftSeconds + other.durationSeconds &&
-              Math.max(0, finalLeft) + newDuration > other.leftSeconds
-            );
-            if (hasOverlap) return c;
-
-            const updatedKeyframes = c.keyframes
-              ? c.keyframes
-                  .filter((kf) => kf.timeOffset >= change)
-                  .map((kf) => ({
-                    ...kf,
-                    timeOffset: kf.timeOffset - change,
-                  }))
-              : [];
-
-            return {
-              ...c,
-              leftSeconds: Math.max(0, finalLeft),
-              durationSeconds: newDuration,
-              trimStartSeconds: newTrimStart,
-              keyframes: updatedKeyframes,
-              opticalFlow: undefined,
-            };
-          } else {
-            if (c.type === "image" || c.type === "text") {
-              let newDuration = Math.max(
-                0.5,
-                initialDurationSeconds + deltaSeconds,
-              );
-              
-              if (snappingEnabled) {
-                let newRight = initialLeftSeconds + newDuration;
-                const SNAP_THRESHOLD_SECONDS = 15 / currentPixelsPerSecondRef.current;
-                let minDistance = SNAP_THRESHOLD_SECONDS;
-                let snappedRight = newRight;
-                const snapPoints = [currentTime];
-                prev.forEach(other => {
-                  if (other.id !== clip.id) {
-                    snapPoints.push(other.leftSeconds);
-                    snapPoints.push(other.leftSeconds + other.durationSeconds);
-                  }
-                });
-                snapPoints.forEach(sp => {
-                  const dist = Math.abs(sp - newRight);
-                  if (dist < minDistance) {
-                    minDistance = dist;
-                    snappedRight = sp;
-                  }
-                });
-                newDuration = Math.max(0.5, snappedRight - initialLeftSeconds);
-              }
-
-              // Collision check
-              const hasOverlap = prev.some(other =>
-                other.id !== clip.id &&
-                other.layerId === clip.layerId &&
-                initialLeftSeconds < other.leftSeconds + other.durationSeconds &&
-                initialLeftSeconds + newDuration > other.leftSeconds
-              );
-              if (hasOverlap) return c;
-
-              const updatedKeyframes = c.keyframes
-                ? c.keyframes.filter((kf) => kf.timeOffset <= newDuration)
-                : [];
-
-              return { ...c, durationSeconds: newDuration, keyframes: updatedKeyframes, opticalFlow: undefined };
-            }
-
-            const speed = c.speed || 1.0;
-            let newDuration = Math.max(
-              0.5,
-              initialDurationSeconds + deltaSeconds,
-            );
-            
-            if (initialTrimStartSeconds + newDuration * speed > maxAvailableDuration) {
-                newDuration = (maxAvailableDuration - initialTrimStartSeconds) / speed;
-            }
-            
-            // Snap right edge
-            if (snappingEnabled) {
-              let newRight = initialLeftSeconds + newDuration;
-              const SNAP_THRESHOLD_SECONDS = 15 / currentPixelsPerSecondRef.current;
-              let minDistance = SNAP_THRESHOLD_SECONDS;
-              let snappedRight = newRight;
-              const snapPoints = [currentTime];
-              prev.forEach(other => {
-                if (other.id !== clip.id) {
-                  snapPoints.push(other.leftSeconds);
-                  snapPoints.push(other.leftSeconds + other.durationSeconds);
-                }
-              });
-              snapPoints.forEach(sp => {
-                const dist = Math.abs(sp - newRight);
-                if (dist < minDistance) {
-                  minDistance = dist;
-                  snappedRight = sp;
-                }
-              });
-              newDuration = Math.max(0.5, snappedRight - initialLeftSeconds);
-            }
-
-            if (initialTrimStartSeconds + newDuration * speed > maxAvailableDuration) {
-                newDuration = (maxAvailableDuration - initialTrimStartSeconds) / speed;
-            }
-
-            // Collision check
-            const hasOverlap = prev.some(other =>
-              other.id !== clip.id &&
-              other.layerId === clip.layerId &&
-              initialLeftSeconds < other.leftSeconds + other.durationSeconds &&
-              initialLeftSeconds + newDuration > other.leftSeconds
-            );
-            if (hasOverlap) return c;
-
-            const updatedKeyframes = c.keyframes
-              ? c.keyframes.filter((kf) => kf.timeOffset <= newDuration)
-              : [];
-
-            return { ...c, durationSeconds: newDuration, keyframes: updatedKeyframes, opticalFlow: undefined };
-          }
-        }),
-      );
     };
 
     const handlePointerUp = (upEvent: PointerEvent) => {
@@ -6494,7 +5999,7 @@ const renderEditor = () => (
                     let pendingClientX = e.clientX;
                     let rafScheduled = false;
 
-                    const updateSeek = (clientX: number) => {
+                    const updateSeek = async (clientX: number) => {
                       const innerRect = document.getElementById("timeline-inner")?.getBoundingClientRect();
                       if (!innerRect) return;
                       const x = clientX - innerRect.left;
@@ -6504,22 +6009,7 @@ const renderEditor = () => (
                       );
 
                       if (snappingEnabled) {
-                        const SNAP_THRESHOLD_SECONDS = 12 / currentPixelsPerSecondRef.current;
-                        let minDistance = SNAP_THRESHOLD_SECONDS;
-                        let snappedTime = newTime;
-                        const snapPoints = [0];
-                        clips.forEach((c) => {
-                          snapPoints.push(c.leftSeconds);
-                          snapPoints.push(c.leftSeconds + c.durationSeconds);
-                        });
-                        snapPoints.forEach((sp) => {
-                          const dist = Math.abs(sp - newTime);
-                          if (dist < minDistance) {
-                            minDistance = dist;
-                            snappedTime = sp;
-                          }
-                        });
-                        newTime = snappedTime;
+                        newTime = await TimelineBridge.snapPlayhead(newTime);
                       }
 
                       setCurrentTime(newTime);
@@ -7482,52 +6972,20 @@ const renderEditor = () => (
                 >
                   <SpeedRulerControl
                     value={clipSpeed}
-                    onChange={(val) => {
+                    onChange={async (val) => {
                       setClipSpeed(val);
                       if (selectedClipId) {
-                        setClips((prev) => {
-                          const target = prev.find(c => c.id === selectedClipId);
-                          if (!target) return prev;
-                          
-                          const oldSpeed = target.speed || 1;
-                          const originalDur = target.durationSeconds * oldSpeed;
-                          const newDuration = originalDur / val;
-                          const delta = newDuration - target.durationSeconds;
-                          
-                          return prev.map(c => {
-                            if (c.id === selectedClipId) {
-                              return {...c, speed: val, durationSeconds: newDuration, opticalFlow: undefined};
-                            }
-                            if (c.layerId === target.layerId && c.leftSeconds >= target.leftSeconds + target.durationSeconds) {
-                              return {...c, leftSeconds: c.leftSeconds + delta};
-                            }
-                            return c;
-                          });
-                        });
+                        await TimelineBridge.updateClipSpeed(selectedClipId, val);
+                        const state = await TimelineBridge.getTimelineState();
+                        setClips(state.clips);
                       }
                     }}
-                    onReset={() => {
+                    onReset={async () => {
                       setClipSpeed(1);
                       if (selectedClipId) {
-                        setClips((prev) => {
-                          const target = prev.find(c => c.id === selectedClipId);
-                          if (!target) return prev;
-                          
-                          const oldSpeed = target.speed || 1;
-                          const originalDur = target.durationSeconds * oldSpeed;
-                          const newDuration = originalDur / 1;
-                          const delta = newDuration - target.durationSeconds;
-                          
-                          return prev.map(c => {
-                            if (c.id === selectedClipId) {
-                              return {...c, speed: 1, durationSeconds: newDuration, opticalFlow: undefined};
-                            }
-                            if (c.layerId === target.layerId && c.leftSeconds >= target.leftSeconds + target.durationSeconds) {
-                              return {...c, leftSeconds: c.leftSeconds + delta};
-                            }
-                            return c;
-                          });
-                        });
+                        await TimelineBridge.updateClipSpeed(selectedClipId, 1);
+                        const state = await TimelineBridge.getTimelineState();
+                        setClips(state.clips);
                       }
                     }}
                     onClose={() => setActiveExpandedMenu(null)}

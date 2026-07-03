@@ -1,6 +1,16 @@
 @import url('https://fonts.googleapis.com/css2?family=League+Spartan:wght@400;600;800&family=Lexend+Giga:wght@400;600;800&family=Lexend:wght@400;600;800&family=Inter:wght@400;600;800&family=Space+Grotesk:wght@400;600;700&display=swap');
 @import "tailwindcss";
 
+:root {
+  --safe-area-top: env(safe-area-inset-top);
+  --safe-area-bottom: env(safe-area-inset-bottom);
+}
+
+body {
+  padding-top: var(--safe-area-top);
+  padding-bottom: var(--safe-area-bottom);
+}
+
 @layer utilities {
   .scrollbar-hide {
     -ms-overflow-style: none;
