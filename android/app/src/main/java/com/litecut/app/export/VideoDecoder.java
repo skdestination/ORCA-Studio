@@ -11,6 +11,7 @@ public class VideoDecoder {
     private MediaExtractor mExtractor;
     private MediaCodec mDecoder;
     private boolean mIsEOF = false;
+    private boolean mInputEOS = false;
     private MediaCodec.BufferInfo mBufferInfo = new MediaCodec.BufferInfo();
 
     public void setup(String inputPath, Surface surface) throws IOException {
@@ -39,18 +40,21 @@ public class VideoDecoder {
         return mExtractor;
     }
 
-    public boolean decodeFrame() {
-        if (mIsEOF) return false;
+    public int decodeFrame() {
+        if (mIsEOF) return -1;
 
-        int inputBufIndex = mDecoder.dequeueInputBuffer(10000);
-        if (inputBufIndex >= 0) {
-            ByteBuffer inputBuf = mDecoder.getInputBuffer(inputBufIndex);
-            int sampleSize = mExtractor.readSampleData(inputBuf, 0);
-            if (sampleSize < 0) {
-                mDecoder.queueInputBuffer(inputBufIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
-            } else {
-                mDecoder.queueInputBuffer(inputBufIndex, 0, sampleSize, mExtractor.getSampleTime(), 0);
-                mExtractor.advance();
+        if (!mInputEOS) {
+            int inputBufIndex = mDecoder.dequeueInputBuffer(10000);
+            if (inputBufIndex >= 0) {
+                ByteBuffer inputBuf = mDecoder.getInputBuffer(inputBufIndex);
+                int sampleSize = mExtractor.readSampleData(inputBuf, 0);
+                if (sampleSize < 0) {
+                    mDecoder.queueInputBuffer(inputBufIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
+                    mInputEOS = true;
+                } else {
+                    mDecoder.queueInputBuffer(inputBufIndex, 0, sampleSize, mExtractor.getSampleTime(), 0);
+                    mExtractor.advance();
+                }
             }
         }
 
@@ -61,23 +65,37 @@ public class VideoDecoder {
             if ((mBufferInfo.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                 mIsEOF = true;
             }
-            return true;
+            return render ? 1 : 0;
         } else if (outputBufIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
             // Format changed, ignore for now
-            return true;
+            return 0;
         } else if (outputBufIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
-            return true; 
+            return 0; 
         }
-        return true;
+        return 0;
     }
 
     public void release() {
         if (mDecoder != null) {
-            mDecoder.stop();
-            mDecoder.release();
+            try {
+                mDecoder.stop();
+            } catch (Exception e) {
+                // ignore
+            }
+            try {
+                mDecoder.release();
+            } catch (Exception e) {
+                // ignore
+            }
+            mDecoder = null;
         }
         if (mExtractor != null) {
-            mExtractor.release();
+            try {
+                mExtractor.release();
+            } catch (Exception e) {
+                // ignore
+            }
+            mExtractor = null;
         }
     }
 }

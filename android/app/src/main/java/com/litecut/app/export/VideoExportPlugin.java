@@ -65,13 +65,29 @@ public class VideoExportPlugin extends Plugin {
                     }
                 }
                 
+                final Object frameSyncObject = new Object();
+                final boolean[] frameAvailable = new boolean[1];
+                st.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
+                    @Override
+                    public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+                        synchronized (frameSyncObject) {
+                            frameAvailable[0] = true;
+                            frameSyncObject.notifyAll();
+                        }
+                    }
+                });
+
                 boolean running = true;
                 long framesProcessed = 0;
                 MediaCodec.BufferInfo audioBufferInfo = new MediaCodec.BufferInfo();
                 ByteBuffer audioBuffer = ByteBuffer.allocate(1024 * 1024);
                 
                 while (running) {
-                    running = decoder.decodeFrame();
+                    int decodeStatus = decoder.decodeFrame();
+                    if (decodeStatus == -1) {
+                        running = false;
+                        break;
+                    }
                     
                     // Process Audio
                     if (audioTrackIndex != -1) {
@@ -83,20 +99,41 @@ public class VideoExportPlugin extends Plugin {
                         }
                     }
                     
-                    st.updateTexImage();
-                    st.getTransformMatrix(stMatrix);
-                    
-                    eglCore.makeCurrent(encoderSurface);
-                    renderer.drawFrame(textureId, stMatrix);
-                    eglCore.swapBuffers(encoderSurface);
-                    
-                    encoder.drainEncoder(false);
-                    
-                    framesProcessed++;
-                    if (framesProcessed % 30 == 0) {
-                        JSObject progressData = new JSObject();
-                        progressData.put("progress", (double)framesProcessed / 300.0);
-                        notifyListeners("exportProgress", progressData);
+                    if (decodeStatus == 1) {
+                        synchronized (frameSyncObject) {
+                            while (!frameAvailable[0]) {
+                                try {
+                                    frameSyncObject.wait(2500);
+                                    if (!frameAvailable[0]) {
+                                        throw new RuntimeException("SurfaceTexture frame wait timed out");
+                                    }
+                                } catch (InterruptedException ie) {
+                                    throw new RuntimeException(ie);
+                                }
+                            }
+                            frameAvailable[0] = false;
+                        }
+
+                        st.updateTexImage();
+                        st.getTransformMatrix(stMatrix);
+                        
+                        eglCore.makeCurrent(encoderSurface);
+                        renderer.drawFrame(textureId, stMatrix);
+                        
+                        // Set the presentation timestamp to preserve the decoder timeline
+                        long timestampNs = st.getTimestamp();
+                        eglCore.setPresentationTime(encoderSurface, timestampNs);
+                        
+                        eglCore.swapBuffers(encoderSurface);
+                        
+                        encoder.drainEncoder(false);
+                        
+                        framesProcessed++;
+                        if (framesProcessed % 30 == 0) {
+                            JSObject progressData = new JSObject();
+                            progressData.put("progress", (double)framesProcessed / 300.0);
+                            notifyListeners("exportProgress", progressData);
+                        }
                     }
                 }
                 
@@ -105,9 +142,27 @@ public class VideoExportPlugin extends Plugin {
             } catch (Exception e) {
                 call.reject("Export failed: " + e.getMessage());
             } finally {
-                if (encoder != null) encoder.release();
-                if (decoder != null) decoder.release();
-                if (eglCore != null) eglCore.release();
+                if (encoder != null) {
+                    try {
+                        encoder.release();
+                    } catch (Exception e) {
+                        // ignore
+                    }
+                }
+                if (decoder != null) {
+                    try {
+                        decoder.release();
+                    } catch (Exception e) {
+                        // ignore
+                    }
+                }
+                if (eglCore != null) {
+                    try {
+                        eglCore.release();
+                    } catch (Exception e) {
+                        // ignore
+                    }
+                }
             }
         }).start();
     }

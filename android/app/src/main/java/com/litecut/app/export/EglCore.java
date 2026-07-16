@@ -69,6 +69,10 @@ public class EglCore {
         return EGL14.eglSwapBuffers(mEGLDisplay, eglSurface);
     }
 
+    public void setPresentationTime(EGLSurface eglSurface, long nsecs) {
+        android.opengl.EGLExt.eglPresentationTimeANDROID(mEGLDisplay, eglSurface, nsecs);
+    }
+
     public void release() {
         if (mEGLDisplay != EGL14.EGL_NO_DISPLAY) {
             EGL14.eglMakeCurrent(mEGLDisplay, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_SURFACE, EGL14.EGL_NO_CONTEXT);

@@ -50,9 +50,13 @@ public class VideoEncoder {
         }
         
         while (true) {
-            int encoderStatus = mEncoder.dequeueOutputBuffer(mBufferInfo, 0);
+            int timeoutUs = endOfStream ? 10000 : 0;
+            int encoderStatus = mEncoder.dequeueOutputBuffer(mBufferInfo, timeoutUs);
             if (encoderStatus == MediaCodec.INFO_TRY_AGAIN_LATER) {
-                break;
+                if (!endOfStream) {
+                    break;
+                }
+                continue;
             } else if (encoderStatus == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                 if (!mMuxerStarted) {
                     mVideoTrackIndex = mMuxer.addTrack(mEncoder.getOutputFormat());
@@ -78,12 +82,32 @@ public class VideoEncoder {
 
     public void release() {
         if (mEncoder != null) {
-            mEncoder.stop();
-            mEncoder.release();
+            try {
+                mEncoder.stop();
+            } catch (Exception e) {
+                // ignore
+            }
+            try {
+                mEncoder.release();
+            } catch (Exception e) {
+                // ignore
+            }
+            mEncoder = null;
         }
         if (mMuxer != null) {
-            mMuxer.stop();
-            mMuxer.release();
+            if (mMuxerStarted) {
+                try {
+                    mMuxer.stop();
+                } catch (Exception e) {
+                    // ignore
+                }
+            }
+            try {
+                mMuxer.release();
+            } catch (Exception e) {
+                // ignore
+            }
+            mMuxer = null;
         }
     }
 }
