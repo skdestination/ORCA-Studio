@@ -8,7 +8,8 @@ android {
         applicationId "com.litecut.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode System.getenv('VERSION_CODE') ? System.getenv('VERSION_CODE').toInteger() : 1
+        def envVersionCode = System.getenv('VERSION_CODE') ?: System.getenv('BUILD_NUMBER') ?: System.getenv('PROJECT_BUILD_NUMBER')
+        versionCode envVersionCode ? envVersionCode.toInteger() : 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
