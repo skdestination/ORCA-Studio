@@ -44,7 +44,7 @@ class AudioRenderPipeline(
         }
 
         // 2. Identify active audio/video clips with audio on the timeline
-        val allClips = timelineEngine.getClips()
+        val allClips = timelineEngine.getAllClips()
         var activeChannels = 0
 
         for (clip in allClips) {
@@ -185,7 +185,7 @@ class AudioRenderPipeline(
         val scheduler = TaskScheduler.getInstance(null) ?: return
         val taskName = "AudioCacheWarming-${clip.id}-$segmentIndex"
         
-        scheduler.submit(taskName, TaskPriority.MEDIUM) { token, _ ->
+        scheduler.submit(taskName, TaskPriority.NORMAL) { token, _ ->
             if (token.isCancelled()) return@submit
             
             // Simulate reading / decoding audio stream

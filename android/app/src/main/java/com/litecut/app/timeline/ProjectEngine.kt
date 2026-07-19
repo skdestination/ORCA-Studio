@@ -191,7 +191,7 @@ class ProjectEngine private constructor(private val context: Context) {
         
         TaskScheduler.getInstance(context).submit(
             name = "ProjectRelinkAssets-${doc.metadata.id}",
-            priority = TaskPriority.MEDIUM
+            priority = TaskPriority.NORMAL
         ) { token, progress ->
             val relinkedCount = integrityChecker.attemptAutomaticRelinking(doc, searchDirectory) { asset, path ->
                 onAssetRelinked(asset, path)

@@ -57,10 +57,7 @@ class TimelineView @JvmOverloads constructor(
         super.onDraw(canvas)
 
         // Gather all clips for viewport awareness and prefetching updates
-        val clips = mutableListOf<Clip>()
-        for (layer in engine.getAllLayers()) {
-            clips.addAll(layer.clips)
-        }
+        val clips = engine.getAllClips()
         com.litecut.app.timeline.audio.WaveformEngine.getInstance(context)
             .updateViewportState(clips, viewport, engine.pixelsPerSecond)
 

@@ -33,6 +33,7 @@ class CompositionNode {
     var isAdjustmentLayer: Boolean = false
     var transitionType: String? = null
     var transitionDuration: Double = 0.0
+    val additionalProperties: HashMap<String, Any> = HashMap()
 
     fun copyFrom(other: CompositionNode) {
         this.id = other.id
@@ -59,6 +60,8 @@ class CompositionNode {
         this.isAdjustmentLayer = other.isAdjustmentLayer
         this.transitionType = other.transitionType
         this.transitionDuration = other.transitionDuration
+        this.additionalProperties.clear()
+        this.additionalProperties.putAll(other.additionalProperties)
     }
 
     fun reset() {
@@ -86,5 +89,6 @@ class CompositionNode {
         isAdjustmentLayer = false
         transitionType = null
         transitionDuration = 0.0
+        additionalProperties.clear()
     }
 }

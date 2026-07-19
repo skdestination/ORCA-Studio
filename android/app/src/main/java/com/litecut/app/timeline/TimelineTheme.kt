@@ -21,7 +21,7 @@ object TimelineTheme {
 
     // Ruler Grid Colors
     var rulerTickColor: Int = 0x44FFFFFF                  // Tick marks color
-    var rulerTextColor: Int = 0x88FFFFFF                  // Label colors
+    var rulerTextColor: Int = 0x88FFFFFF.toInt()                  // Label colors
     var rulerTextSize: Float = 26f                        // Text size for ruler times
 
     // Clip Card Styling by Type

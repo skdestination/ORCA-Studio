@@ -32,6 +32,30 @@ data class TextStyle(
     var backgroundColor: Int = 0x40000000.toInt(),
     var backgroundPadding: Float = 8.0f
 ) {
+    fun copyFrom(other: TextStyle) {
+        this.fontName = other.fontName
+        this.fontSize = other.fontSize
+        this.fontWeight = other.fontWeight
+        this.fontStyle = other.fontStyle
+        this.letterSpacing = other.letterSpacing
+        this.lineHeight = other.lineHeight
+        this.alignment = other.alignment
+        this.fillColor = other.fillColor
+        this.isGradientFillEnabled = other.isGradientFillEnabled
+        this.gradientColors.clear()
+        this.gradientColors.addAll(other.gradientColors)
+        this.strokeColor = other.strokeColor
+        this.strokeWidth = other.strokeWidth
+        this.isShadowEnabled = other.isShadowEnabled
+        this.shadowColor = other.shadowColor
+        this.shadowOffsetX = other.shadowOffsetX
+        this.shadowOffsetY = other.shadowOffsetY
+        this.shadowRadius = other.shadowRadius
+        this.isBackgroundEnabled = other.isBackgroundEnabled
+        this.backgroundColor = other.backgroundColor
+        this.backgroundPadding = other.backgroundPadding
+    }
+
     fun toJSONObject(): JSONObject {
         val json = JSONObject()
         json.put("fontName", fontName)

@@ -79,6 +79,10 @@ class TaskScheduler private constructor(context: Context) {
         return submit(taskInstance)
     }
 
+    fun getTask(taskId: String): Task<*>? {
+        return dispatcher.getTask(taskId)
+    }
+
     /**
      * Cancels an active or queued task.
      */

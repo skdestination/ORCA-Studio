@@ -136,3 +136,6 @@ val Clip.scale: Float
 val Clip.rotation: Float
     get() = (additionalProperties["rotation"] as? Number)?.toFloat() ?: 0.0f
 
+val Clip.mute: Boolean
+    get() = (additionalProperties["mute"] as? Boolean) ?: ((additionalProperties["mute"] as? Number)?.toDouble() ?: 0.0 > 0.5)
+

@@ -88,7 +88,7 @@ class PreviewEngine private constructor(private val context: Context) : PreviewS
             activeSession?.let {
                 it.release()
                 // Unregister from ResourceManager
-                ResourceManager.getInstance(context).trimMemory(0)
+                ResourceManager.getInstance(context).clearAll()
             }
             activeSession = null
         }

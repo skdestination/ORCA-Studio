@@ -7,6 +7,7 @@ import android.graphics.RectF
 import com.litecut.app.timeline.Clip
 import com.litecut.app.timeline.Viewport
 import com.litecut.app.timeline.TimelineEngine
+import com.litecut.app.timeline.TimelineView
 
 /**
  * Highly optimized, DAW-grade continuous filled audio waveform renderer.

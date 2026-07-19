@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 class RenderStatistics {
+    var lastFrameRenderTimeNs: Long = 0L
     private val frameCount = AtomicLong(0)
     private val totalRenderTimeNs = AtomicLong(0)
     private val maxRenderTimeNs = AtomicLong(0)
@@ -14,6 +15,7 @@ class RenderStatistics {
     private val drawCalls = AtomicInteger(0)
 
     fun recordFrame(renderTimeNs: Long) {
+        lastFrameRenderTimeNs = renderTimeNs
         frameCount.incrementAndGet()
         totalRenderTimeNs.addAndGet(renderTimeNs)
         var currentMax = maxRenderTimeNs.get()

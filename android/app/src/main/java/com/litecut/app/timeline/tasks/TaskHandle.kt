@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 
 class TaskHandle<T>(
     val taskId: String,
-    private val task: Task<T>
+    val task: Task<T>
 ) {
     private val latch = CountDownLatch(1)
     private val listeners = CopyOnWriteArrayList<TaskProgressListener>()
@@ -18,6 +18,9 @@ class TaskHandle<T>(
 
     val state: TaskState
         get() = task.state
+
+    val isDone: Boolean
+        get() = state == TaskState.COMPLETED || state == TaskState.CANCELLED || state == TaskState.FAILED
 
     val progress: Int
         get() = task.progress

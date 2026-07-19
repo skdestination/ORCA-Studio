@@ -15,6 +15,10 @@ class TaskDispatcher(
     private val mainHandler = Handler(Looper.getMainLooper())
     private val activeHandles = ConcurrentHashMap<String, TaskHandle<*>>()
 
+    fun getTask(taskId: String): Task<*>? {
+        return activeHandles[taskId]?.task
+    }
+
     /**
      * Dispatcher lock to ensure only one thread triggers dispatch loops at once.
      */
