@@ -5,6 +5,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.litecut.app.timeline.TimelineScreen
 
 /**
@@ -14,6 +16,19 @@ import com.litecut.app.timeline.TimelineScreen
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Enable edge-to-edge screen rendering to make the app full screen and draw behind system bars
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+
+        // Make the system bars completely transparent so app content flows underneath seamlessly
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+
+        // Configure system bar icons: use light icons since our video editor is dark-themed
+        val controller = WindowInsetsControllerCompat(window, window.decorView)
+        controller.isAppearanceLightStatusBars = false
+        controller.isAppearanceLightNavigationBars = false
+
         setContent {
             TimelineScreen(
                 modifier = Modifier.fillMaxSize(),
