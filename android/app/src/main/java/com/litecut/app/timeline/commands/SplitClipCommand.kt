@@ -2,7 +2,6 @@ package com.litecut.app.timeline.commands
 
 import com.litecut.app.timeline.Command
 import com.litecut.app.timeline.TimelineEngine
-import com.litecut.app.timeline.TimelineClip
 
 class SplitClipCommand(
     private val clipId: String,
@@ -14,7 +13,7 @@ class SplitClipCommand(
 
     override fun execute(engine: TimelineEngine) {
         val clip = engine.getClip(clipId) ?: return
-        oldDuration = clip.duration
+        oldDuration = clip.durationSeconds
 
         val newClip = engine.splitClipInternal(clipId, splitTime, generatedNewId)
         if (newClip != null) {
@@ -26,7 +25,7 @@ class SplitClipCommand(
         if (splitSuccessful) {
             engine.deleteClipInternal(generatedNewId)
             engine.getClip(clipId)?.let {
-                it.duration = oldDuration
+                it.durationSeconds = oldDuration
             }
         }
     }

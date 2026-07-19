@@ -16,18 +16,18 @@ class TrimClipCommand(
 
     override fun execute(engine: TimelineEngine) {
         val clip = engine.getClip(clipId) ?: return
-        oldLeft = clip.startTime
-        oldDuration = clip.duration
-        oldTrimStart = clip.trimIn
+        oldLeft = clip.leftSeconds
+        oldDuration = clip.durationSeconds
+        oldTrimStart = clip.trimStartSeconds
 
         engine.trimClipInternal(clipId, side, deltaSeconds, snappingEnabled, currentTime)
     }
 
     override fun undo(engine: TimelineEngine) {
         engine.getClip(clipId)?.let {
-            it.startTime = oldLeft
-            it.duration = oldDuration
-            it.trimIn = oldTrimStart
+            it.leftSeconds = oldLeft
+            it.durationSeconds = oldDuration
+            it.trimStartSeconds = oldTrimStart
         }
     }
 }

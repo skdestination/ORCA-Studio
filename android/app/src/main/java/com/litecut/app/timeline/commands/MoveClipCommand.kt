@@ -13,7 +13,7 @@ class MoveClipCommand(
 
     override fun execute(engine: TimelineEngine) {
         oldPositions = clipIds.mapNotNull { id ->
-            engine.getClip(id)?.let { id to Pair(it.startTime, it.trackId) }
+            engine.getClip(id)?.let { id to Pair(it.leftSeconds, it.layerId) }
         }.toMap()
 
         engine.moveClipsInternal(clipIds, deltaSeconds, targetLayerId, fallbackLayerId)
@@ -22,8 +22,8 @@ class MoveClipCommand(
     override fun undo(engine: TimelineEngine) {
         for ((id, pos) in oldPositions) {
             engine.getClip(id)?.let {
-                it.startTime = pos.first
-                it.trackId = pos.second
+                it.leftSeconds = pos.first
+                it.layerId = pos.second
             }
         }
     }

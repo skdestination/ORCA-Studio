@@ -2,10 +2,10 @@ package com.litecut.app.timeline.commands
 
 import com.litecut.app.timeline.Command
 import com.litecut.app.timeline.TimelineEngine
-import com.litecut.app.timeline.TimelineClip
+import com.litecut.app.timeline.Clip
 
 class DeleteClipCommand(private val clipIds: List<String>) : Command {
-    private var deletedClips: List<TimelineClip> = emptyList()
+    private var deletedClips: List<Clip> = emptyList()
 
     override fun execute(engine: TimelineEngine) {
         deletedClips = clipIds.mapNotNull { engine.getClip(it)?.copy() }
