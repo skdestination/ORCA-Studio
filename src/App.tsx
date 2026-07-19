@@ -4675,6 +4675,14 @@ const renderEditor = () => (
           </div>
         </div>
       </div>
+
+      {/* Center-aligned Interactive Sandbox Badge */}
+      <div className="hidden md:flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/25 px-3.5 py-1.5 rounded-full pointer-events-auto shadow-[0_0_15px_rgba(99,102,241,0.12)]">
+        <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+        <span className="text-[9px] font-black tracking-[0.2em] text-indigo-300 uppercase leading-none">
+          ORCA Sandbox Preview
+        </span>
+      </div>
           
         <div className="flex items-center gap-2 pointer-events-auto">
           <button

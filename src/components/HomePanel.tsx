@@ -193,6 +193,13 @@ export const HomePanel: React.FC<HomePanelProps> = ({
               <span>Creative Studio</span>
               <span className="w-1.5 h-1.5 rounded-full bg-orange-500 shadow-[0_0_5px_rgba(249,115,22,0.6)]" />
             </div>
+            {/* Elegant Sandbox Indicator Pill */}
+            <div className="mt-4 px-3.5 py-1.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 flex items-center gap-2 max-w-xs mx-auto shadow-[0_0_15px_rgba(99,102,241,0.15)]">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+              <span className="text-[9px] font-black tracking-[0.2em] text-indigo-300 uppercase leading-none">
+                React Sandbox Preview
+              </span>
+            </div>
           </div>
 
           {/* Subsection Header: Projects & Filter */}
