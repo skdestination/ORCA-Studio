@@ -1,8 +1,68 @@
 package com.litecut.app.timeline
 
+import kotlin.math.max
+
 interface Command {
     fun execute(engine: TimelineEngine)
     fun undo(engine: TimelineEngine)
+}
+
+class CreateClipCommand(private val clip: Clip) : Command {
+    override fun execute(engine: TimelineEngine) {
+        engine.addClipInternal(clip)
+    }
+
+    override fun undo(engine: TimelineEngine) {
+        engine.deleteClipInternal(clip.id)
+    }
+}
+
+class DeleteCommand(private val clipIds: List<String>) : Command {
+    private val deletedClips = ArrayList<Clip>()
+
+    override fun execute(engine: TimelineEngine) {
+        deletedClips.clear()
+        for (id in clipIds) {
+            engine.getClip(id)?.let {
+                deletedClips.add(it.copy(additionalProperties = it.additionalProperties.toMutableMap()))
+            }
+        }
+        engine.deleteClipsInternal(clipIds)
+    }
+
+    override fun undo(engine: TimelineEngine) {
+        for (clip in deletedClips) {
+            engine.addClipInternal(clip)
+        }
+    }
+}
+
+class SplitCommand(
+    private val clipId: String,
+    private val splitTime: Double,
+    private val generatedId: String
+) : Command {
+    private var oldDuration: Double = 0.0
+    private var splitSuccessful = false
+
+    override fun execute(engine: TimelineEngine) {
+        val clip = engine.getClip(clipId) ?: return
+        oldDuration = clip.durationSeconds
+
+        val newClip = engine.splitClipInternal(clipId, splitTime, generatedId)
+        if (newClip != null) {
+            splitSuccessful = true
+        }
+    }
+
+    override fun undo(engine: TimelineEngine) {
+        if (splitSuccessful) {
+            engine.deleteClipInternal(generatedId)
+            engine.getClip(clipId)?.let {
+                it.durationSeconds = oldDuration
+            }
+        }
+    }
 }
 
 class MoveCommand(
@@ -11,34 +71,31 @@ class MoveCommand(
     private val targetLayerId: String,
     private val fallbackLayerId: String
 ) : Command {
-    private var oldState: Map<String, Pair<Double, String>> = emptyMap()
-    private var executed = false
+    private val oldPositions = HashMap<String, Pair<Double, String>>()
 
     override fun execute(engine: TimelineEngine) {
-        // Record old positions and layers
-        oldState = clipIds.mapNotNull { id ->
-            engine.getClip(id)?.let { id to Pair(it.leftSeconds, it.layerId) }
-        }.toMap()
-
+        oldPositions.clear()
+        for (id in clipIds) {
+            engine.getClip(id)?.let {
+                oldPositions[id] = Pair(it.leftSeconds, it.layerId)
+            }
+        }
         engine.moveClipsInternal(clipIds, deltaSeconds, targetLayerId, fallbackLayerId)
-        executed = true
     }
 
     override fun undo(engine: TimelineEngine) {
-        if (!executed) return
-        for ((id, pos) in oldState) {
+        for ((id, pos) in oldPositions) {
             engine.getClip(id)?.let {
                 it.leftSeconds = pos.first
                 it.layerId = pos.second
             }
         }
-        executed = false
     }
 }
 
 class TrimCommand(
     private val clipId: String,
-    private val side: String, // "left" or "right"
+    private val side: String,
     private val deltaSeconds: Double,
     private val snappingEnabled: Boolean,
     private val currentTime: Double
@@ -46,7 +103,6 @@ class TrimCommand(
     private var oldLeft: Double = 0.0
     private var oldDuration: Double = 0.0
     private var oldTrimStart: Double = 0.0
-    private var executed = false
 
     override fun execute(engine: TimelineEngine) {
         val clip = engine.getClip(clipId) ?: return
@@ -55,116 +111,45 @@ class TrimCommand(
         oldTrimStart = clip.trimStartSeconds
 
         engine.trimClipInternal(clipId, side, deltaSeconds, snappingEnabled, currentTime)
-        executed = true
     }
 
     override fun undo(engine: TimelineEngine) {
-        if (!executed) return
         engine.getClip(clipId)?.let {
             it.leftSeconds = oldLeft
             it.durationSeconds = oldDuration
             it.trimStartSeconds = oldTrimStart
         }
-        executed = false
     }
 }
 
-class SplitCommand(
-    private val clipId: String,
-    private val splitTime: Double,
-    private val generatedNewId: String
-) : Command {
-    private var splitIndex: Int = -1
-    private var addedClip: Clip? = null
-    private var oldDuration: Double = 0.0
-    private var executed = false
-
-    override fun execute(engine: TimelineEngine) {
-        val clip = engine.getClip(clipId) ?: return
-        oldDuration = clip.durationSeconds
-
-        val newClip = engine.splitClipInternal(clipId, splitTime, generatedNewId)
-        if (newClip != null) {
-            addedClip = newClip
-            executed = true
-        }
-    }
-
-    override fun undo(engine: TimelineEngine) {
-        if (!executed) return
-        val clip = engine.getClip(clipId) ?: return
-        clip.durationSeconds = oldDuration
-        addedClip?.let {
-            engine.deleteClipInternal(it.id)
-        }
-        executed = false
-    }
-}
-
-class DeleteCommand(
-    private val clipIds: List<String>
-) : Command {
-    private var deletedClips: List<Clip> = emptyList()
-    private var executed = false
-
-    override fun execute(engine: TimelineEngine) {
-        deletedClips = clipIds.mapNotNull { engine.getClip(it)?.copy() }
-        engine.deleteClipsInternal(clipIds)
-        executed = true
-    }
-
-    override fun undo(engine: TimelineEngine) {
-        if (!executed) return
-        deletedClips.forEach {
-            engine.addClipInternal(it)
-        }
-        executed = false
-    }
-}
-
-class RippleDeleteCommand(
-    private val clipId: String
-) : Command {
-    private var oldClipsState: List<Pair<String, Double>> = emptyList()
+class RippleDeleteCommand(private val clipId: String) : Command {
     private var deletedClip: Clip? = null
-    private var executed = false
+    private val shiftedClips = ArrayList<Pair<String, Double>>()
 
     override fun execute(engine: TimelineEngine) {
         val clip = engine.getClip(clipId) ?: return
-        deletedClip = clip.copy()
-        
-        // Record all other clip positions
-        oldClipsState = engine.getAllClips().map { it.id to it.leftSeconds }
+        deletedClip = clip.copy(additionalProperties = clip.additionalProperties.toMutableMap())
+        shiftedClips.clear()
+
+        val deleteLeft = clip.leftSeconds
+        val deleteDur = clip.durationSeconds
+        val targetLayer = clip.layerId
+
+        for (other in engine.getAllClips()) {
+            if (other.layerId == targetLayer && other.leftSeconds > deleteLeft) {
+                shiftedClips.add(Pair(other.id, other.leftSeconds))
+            }
+        }
 
         engine.rippleDeleteClipInternal(clipId)
-        executed = true
     }
 
     override fun undo(engine: TimelineEngine) {
-        if (!executed) return
-        // Restore all clips positions
-        for ((id, left) in oldClipsState) {
-            engine.getClip(id)?.leftSeconds = left
-        }
-        // Restore the deleted clip
         deletedClip?.let { engine.addClipInternal(it) }
-        executed = false
-    }
-}
-
-class CreateClipCommand(
-    private val clip: Clip
-) : Command {
-    private var executed = false
-
-    override fun execute(engine: TimelineEngine) {
-        engine.addClipInternal(clip)
-        executed = true
-    }
-
-    override fun undo(engine: TimelineEngine) {
-        if (!executed) return
-        engine.deleteClipInternal(clip.id)
-        executed = false
+        for ((id, oldLeft) in shiftedClips) {
+            engine.getClip(id)?.let {
+                it.leftSeconds = oldLeft
+            }
+        }
     }
 }

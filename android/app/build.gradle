@@ -24,6 +24,12 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    buildFeatures {
+        compose true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion '1.4.6'
+    }
 }
 
 repositories {
@@ -44,6 +50,20 @@ dependencies {
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
+
+    // Jetpack Compose Dependencies
+    implementation "androidx.compose.ui:ui:1.4.3"
+    implementation "androidx.compose.material3:material3:1.1.0"
+    implementation "androidx.compose.ui:ui-tooling-preview:1.4.3"
+    implementation "androidx.activity:activity-compose:1.7.0"
+
+    // ONNX Runtime Mobile for RAFT Optical Flow
+    implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.17.1'
+
+    // Firebase BoM and Crashlytics dependencies
+    implementation platform('com.google.firebase:firebase-bom:33.1.1')
+    implementation 'com.google.firebase:firebase-crashlytics'
+    implementation 'com.google.firebase:firebase-analytics'
 }
 
 apply from: 'capacitor.build.gradle'
@@ -52,7 +72,8 @@ try {
     def servicesJSON = file('google-services.json')
     if (servicesJSON.text) {
         apply plugin: 'com.google.gms.google-services'
+        apply plugin: 'com.google.firebase.crashlytics'
     }
 } catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+    logger.info("google-services.json not found, google-services and crashlytics plugins not applied.")
 }

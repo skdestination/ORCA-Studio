@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Capacitor } from "@capacitor/core";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Media } from "@capacitor-community/media";
+import { VideoExport } from "../lib/videoExport";
 
 interface ExportOverlayProps {
   isExporting: boolean;
@@ -64,7 +65,7 @@ export function ExportOverlay({
     const autoSave = async () => {
       if (Capacitor.isNativePlatform()) {
         try {
-          showExportToast("💾 Saving to device gallery...");
+          showExportToast("💾 Compressing and rendering...");
           const base64Data = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
             reader.readAsDataURL(exportedVideoBlob);
@@ -76,12 +77,69 @@ export function ExportOverlay({
             reader.onerror = (error) => reject(error);
           });
 
-          const filename = `orca-project-${Date.now()}.mp4`;
+          const webmFilename = `orca-temp-${Date.now()}.webm`;
+          const mp4Filename = `orca-final-${Date.now()}.mp4`;
+
+          // 1. Write the raw WebM recording to the cache
           const writeResult = await Filesystem.writeFile({
-            path: filename,
+            path: webmFilename,
             data: base64Data,
             directory: Directory.Cache,
           });
+
+          const inputUri = writeResult.uri;
+
+          // Resolve the destination path for the transcoded MP4 output
+          const getUriResult = await Filesystem.getUri({
+            path: mp4Filename,
+            directory: Directory.Cache,
+          });
+          const outputUri = getUriResult.uri;
+
+          // Compute proper dimensions based on current aspect ratio
+          let resW = 1920;
+          let resH = 1080;
+          if (exportResolution === "4K") {
+            resW = 3840;
+            resH = 2160;
+          } else if (exportResolution === "2K") {
+            resW = 2560;
+            resH = 1440;
+          }
+
+          const [rw, rh] = currentProjectRatio.split(":").map(Number);
+          if (rw && rh) {
+            if (rw < rh) {
+              let tempH = resH;
+              let tempW = Math.round(resH * (rw / rh));
+              if (tempW % 2 !== 0) tempW += 1;
+              if (tempH % 2 !== 0) tempH += 1;
+              resW = tempW;
+              resH = tempH;
+            } else {
+              let tempW = resW;
+              let tempH = Math.round(resW * (rh / rw));
+              if (tempW % 2 !== 0) tempW += 1;
+              if (tempH % 2 !== 0) tempH += 1;
+              resW = tempW;
+              resH = tempH;
+            }
+          }
+
+          // 2. Transcode the WebM to high-compatibility, hardware-accelerated H.264 MP4
+          showExportToast("⚡ Encoding high-quality MP4...");
+          await VideoExport.exportVideo(
+            inputUri,
+            outputUri,
+            resW,
+            resH,
+            30,
+            (pct) => {
+              setExportProgress(pct);
+            }
+          );
+
+          showExportToast("💾 Saving to device gallery...");
 
           try {
             const mediaAny = Media as any;
@@ -130,13 +188,17 @@ export function ExportOverlay({
           } catch (albumErr) {}
 
           await Media.saveVideo({
-            path: writeResult.uri,
+            path: outputUri,
             albumIdentifier,
           });
 
           try {
             await Filesystem.deleteFile({
-              path: filename,
+              path: webmFilename,
+              directory: Directory.Cache,
+            });
+            await Filesystem.deleteFile({
+              path: mp4Filename,
               directory: Directory.Cache,
             });
           } catch (cleanErr) {}

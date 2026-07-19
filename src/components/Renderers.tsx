@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useLayoutEffect } from "react";
 import { Clip } from "../types";
 
 export const VideoRenderer = React.memo(({
@@ -6,6 +6,7 @@ export const VideoRenderer = React.memo(({
   clip,
   currentTime,
   isPlaying,
+  playbackEngine,
   isMuted,
   style,
   className,
@@ -17,6 +18,7 @@ export const VideoRenderer = React.memo(({
   clip: Clip;
   currentTime: number;
   isPlaying: boolean;
+  playbackEngine?: React.MutableRefObject<any>;
   isMuted: boolean;
   style?: React.CSSProperties;
   className?: string;
@@ -26,6 +28,7 @@ export const VideoRenderer = React.memo(({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Sync for play/pause and seek
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -34,19 +37,20 @@ export const VideoRenderer = React.memo(({
     const effectiveSpeed = clip.opticalFlow ? 1 : (clip.speed || 1);
     video.playbackRate = effectiveSpeed;
 
-    let effectiveTrimStart = clip.trimStartSeconds;
-    if (clip.opticalFlow && clip.speed) {
-       effectiveTrimStart = clip.trimStartSeconds / clip.speed;
-    }
+    if (!isPlaying) {
+      // Seeking while paused: synchronize
+      let effectiveTrimStart = clip.trimStartSeconds;
+      if (clip.opticalFlow && clip.speed) {
+         effectiveTrimStart = clip.trimStartSeconds / clip.speed;
+      }
 
-    const totalSourceSpan = clip.durationSeconds * effectiveSpeed;
-    const targetTime = Math.max(0,
-      clip.isReversed
-        ? (effectiveTrimStart + totalSourceSpan - (currentTime - clip.leftSeconds) * effectiveSpeed)
-        : (effectiveTrimStart + (currentTime - clip.leftSeconds) * effectiveSpeed)
-    );
+      const totalSourceSpan = clip.durationSeconds * effectiveSpeed;
+      const targetTime = Math.max(0,
+        clip.isReversed
+          ? (effectiveTrimStart + totalSourceSpan - (currentTime - clip.leftSeconds) * effectiveSpeed)
+          : (effectiveTrimStart + (currentTime - clip.leftSeconds) * effectiveSpeed)
+      );
 
-    if (clip.isReversed) {
       if (Math.abs(video.currentTime - targetTime) > 0.04) {
         try {
           video.currentTime = targetTime;
@@ -54,19 +58,7 @@ export const VideoRenderer = React.memo(({
       }
       if (!video.paused) video.pause();
     } else {
-      if (!isPlaying) {
-        if (Math.abs(video.currentTime - targetTime) > 0.08) {
-          try {
-            video.currentTime = targetTime;
-          } catch (e) {}
-        }
-        if (!video.paused) video.pause();
-      } else {
-        if (Math.abs(video.currentTime - targetTime) > 0.5) {
-          try {
-            video.currentTime = targetTime;
-          } catch (e) {}
-        }
+        // Playing: Handle Play/Pause based on isPlaying
         if (video.paused) {
           const playPromise = video.play();
           if (playPromise !== undefined) {
@@ -75,11 +67,10 @@ export const VideoRenderer = React.memo(({
             });
           }
         }
-      }
     }
   }, [
-    currentTime,
     isPlaying,
+    currentTime,
     clip.leftSeconds,
     clip.trimStartSeconds,
     clip.volume,
@@ -89,6 +80,42 @@ export const VideoRenderer = React.memo(({
     clip.durationSeconds,
     volumeMultiplier,
   ]);
+
+  // Continuous sync when playing
+  useLayoutEffect(() => {
+    let raf: number;
+    const syncTime = () => {
+      const engine = playbackEngine?.current;
+      if (videoRef.current && engine && isPlaying) {
+        const video = videoRef.current;
+        const currentTime = engine.currentTimeRef.current;
+        
+        const effectiveSpeed = clip.opticalFlow ? 1 : (clip.speed || 1);
+        let effectiveTrimStart = clip.trimStartSeconds;
+        if (clip.opticalFlow && clip.speed) {
+            effectiveTrimStart = clip.trimStartSeconds / clip.speed;
+        }
+
+        const totalSourceSpan = clip.durationSeconds * effectiveSpeed;
+        const targetTime = Math.max(0,
+            clip.isReversed
+              ? (effectiveTrimStart + totalSourceSpan - (currentTime - clip.leftSeconds) * effectiveSpeed)
+              : (effectiveTrimStart + (currentTime - clip.leftSeconds) * effectiveSpeed)
+        );
+
+        if (Math.abs(video.currentTime - targetTime) > 0.08) {
+          try {
+            video.currentTime = targetTime;
+          } catch (e) {}
+        }
+      }
+      raf = requestAnimationFrame(syncTime);
+    };
+    if (isPlaying) {
+      raf = requestAnimationFrame(syncTime);
+    }
+    return () => cancelAnimationFrame(raf);
+  }, [isPlaying, clip.leftSeconds, clip.trimStartSeconds, clip.speed, clip.opticalFlow, clip.isReversed, clip.durationSeconds]);
 
   return (
     <video
@@ -110,6 +137,7 @@ export const AudioRenderer = React.memo(({
   clip,
   currentTime,
   isPlaying,
+  playbackEngine,
   isMuted,
   onError,
   volumeMultiplier = 1,
@@ -117,12 +145,14 @@ export const AudioRenderer = React.memo(({
   clip: Clip;
   currentTime: number;
   isPlaying: boolean;
+  playbackEngine?: React.MutableRefObject<any>;
   isMuted: boolean;
   onError?: () => void;
   volumeMultiplier?: number;
 }) => {
   const audioRef = useRef<HTMLAudioElement>(null);
 
+  // Sync for play/pause and seek
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -131,19 +161,20 @@ export const AudioRenderer = React.memo(({
     const effectiveSpeed = clip.opticalFlow ? 1 : (clip.speed || 1);
     audio.playbackRate = effectiveSpeed;
 
-    let effectiveTrimStart = clip.trimStartSeconds;
-    if (clip.opticalFlow && clip.speed) {
-      effectiveTrimStart = clip.trimStartSeconds / clip.speed;
-    }
+    if (!isPlaying) {
+      // Seeking while paused: synchronize
+      let effectiveTrimStart = clip.trimStartSeconds;
+      if (clip.opticalFlow && clip.speed) {
+        effectiveTrimStart = clip.trimStartSeconds / clip.speed;
+      }
 
-    const totalSourceSpan = clip.durationSeconds * effectiveSpeed;
-    const targetTime = Math.max(0,
-      clip.isReversed
-        ? (effectiveTrimStart + totalSourceSpan - (currentTime - clip.leftSeconds) * effectiveSpeed)
-        : (effectiveTrimStart + (currentTime - clip.leftSeconds) * effectiveSpeed)
-    );
+      const totalSourceSpan = clip.durationSeconds * effectiveSpeed;
+      const targetTime = Math.max(0,
+        clip.isReversed
+          ? (effectiveTrimStart + totalSourceSpan - (currentTime - clip.leftSeconds) * effectiveSpeed)
+          : (effectiveTrimStart + (currentTime - clip.leftSeconds) * effectiveSpeed)
+      );
 
-    if (clip.isReversed) {
       if (Math.abs(audio.currentTime - targetTime) > 0.08) {
         try {
           audio.currentTime = targetTime;
@@ -151,19 +182,7 @@ export const AudioRenderer = React.memo(({
       }
       if (!audio.paused) audio.pause();
     } else {
-      if (!isPlaying) {
-        if (Math.abs(audio.currentTime - targetTime) > 0.08) {
-          try {
-            audio.currentTime = targetTime;
-          } catch (e) {}
-        }
-        if (!audio.paused) audio.pause();
-      } else {
-        if (Math.abs(audio.currentTime - targetTime) > 0.5) {
-          try {
-            audio.currentTime = targetTime;
-          } catch (e) {}
-        }
+        // Playing: Handle Play/Pause
         if (audio.paused) {
           const playPromise = audio.play();
           if (playPromise !== undefined) {
@@ -172,11 +191,10 @@ export const AudioRenderer = React.memo(({
             });
           }
         }
-      }
     }
   }, [
-    currentTime,
     isPlaying,
+    currentTime,
     clip.leftSeconds,
     clip.trimStartSeconds,
     clip.volume,
@@ -186,6 +204,42 @@ export const AudioRenderer = React.memo(({
     clip.durationSeconds,
     volumeMultiplier,
   ]);
+
+  // Continuous sync when playing
+  useLayoutEffect(() => {
+    let raf: number;
+    const syncTime = () => {
+      const engine = playbackEngine?.current;
+      if (audioRef.current && engine && isPlaying) {
+        const audio = audioRef.current;
+        const currentTime = engine.currentTimeRef.current;
+        
+        const effectiveSpeed = clip.opticalFlow ? 1 : (clip.speed || 1);
+        let effectiveTrimStart = clip.trimStartSeconds;
+        if (clip.opticalFlow && clip.speed) {
+            effectiveTrimStart = clip.trimStartSeconds / clip.speed;
+        }
+
+        const totalSourceSpan = clip.durationSeconds * effectiveSpeed;
+        const targetTime = Math.max(0,
+            clip.isReversed
+              ? (effectiveTrimStart + totalSourceSpan - (currentTime - clip.leftSeconds) * effectiveSpeed)
+              : (effectiveTrimStart + (currentTime - clip.leftSeconds) * effectiveSpeed)
+        );
+
+        if (Math.abs(audio.currentTime - targetTime) > 0.08) {
+          try {
+            audio.currentTime = targetTime;
+          } catch (e) {}
+        }
+      }
+      raf = requestAnimationFrame(syncTime);
+    };
+    if (isPlaying) {
+      raf = requestAnimationFrame(syncTime);
+    }
+    return () => cancelAnimationFrame(raf);
+  }, [isPlaying, clip.leftSeconds, clip.trimStartSeconds, clip.speed, clip.opticalFlow, clip.isReversed, clip.durationSeconds]);
 
   return (
     <audio ref={audioRef} src={clip.src || undefined} muted={isMuted} onError={onError} />

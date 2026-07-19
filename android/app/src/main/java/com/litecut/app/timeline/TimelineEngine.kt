@@ -107,6 +107,17 @@ class TimelineEngine {
     
     fun getAllLayers(): List<Layer> = layers.toList()
 
+    fun getTotalDurationSeconds(): Double {
+        var maxTime = 0.0
+        for (clip in clips.values) {
+            val end = clip.leftSeconds + clip.durationSeconds
+            if (end > maxTime) {
+                maxTime = end
+            }
+        }
+        return max(maxTime, 30.0) // Return at least 30 seconds default
+    }
+
     // --- Undo/Redo Execution ---
 
     fun executeCommand(command: Command) {

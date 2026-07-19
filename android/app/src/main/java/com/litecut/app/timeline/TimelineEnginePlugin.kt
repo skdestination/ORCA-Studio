@@ -216,4 +216,66 @@ class TimelineEnginePlugin : Plugin() {
             call.reject("pixel missing")
         }
     }
+
+    @PluginMethod
+    fun updateClipSpeed(call: PluginCall) {
+        val clipId = call.getString("clipId")
+        val speed = call.getDouble("speed")
+        if (clipId != null && speed != null) {
+            val clip = engine.getClip(clipId)
+            if (clip != null) {
+                clip.speed = speed
+                val response = JSObject()
+                response.put("success", true)
+                call.resolve(response)
+            } else {
+                call.reject("Clip not found")
+            }
+        } else {
+            call.reject("clipId or speed missing")
+        }
+    }
+
+    @PluginMethod
+    fun snapDrag(call: PluginCall) {
+        val proposedSeconds = call.getDouble("proposedSeconds")
+        val currentTime = call.getDouble("currentTime", 0.0)!!
+        if (proposedSeconds != null) {
+            var snapped = proposedSeconds
+            if (Math.abs(proposedSeconds - currentTime) < 0.2) {
+                snapped = currentTime
+            } else if (Math.abs(proposedSeconds) < 0.2) {
+                snapped = 0.0
+            }
+            val response = JSObject()
+            response.put("snappedSeconds", snapped)
+            call.resolve(response)
+        } else {
+            call.reject("proposedSeconds missing")
+        }
+    }
+
+    @PluginMethod
+    fun resolvePaste(call: PluginCall) {
+        val time = call.getDouble("time")
+        if (time != null) {
+            val response = JSObject()
+            response.put("targetTime", time)
+            call.resolve(response)
+        } else {
+            call.reject("time missing")
+        }
+    }
+
+    @PluginMethod
+    fun snapPlayhead(call: PluginCall) {
+        val time = call.getDouble("time")
+        if (time != null) {
+            val response = JSObject()
+            response.put("snappedTime", time)
+            call.resolve(response)
+        } else {
+            call.reject("time missing")
+        }
+    }
 }

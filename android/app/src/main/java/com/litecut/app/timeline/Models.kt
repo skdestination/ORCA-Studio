@@ -125,3 +125,14 @@ data class Clip(
         }
     }
 }
+
+// --- Clip Extension Properties for Animation & Composition Engine ---
+val Clip.opacity: Float
+    get() = (additionalProperties["opacity"] as? Number)?.toFloat() ?: 1.0f
+
+val Clip.scale: Float
+    get() = (additionalProperties["scale"] as? Number)?.toFloat() ?: 1.0f
+
+val Clip.rotation: Float
+    get() = (additionalProperties["rotation"] as? Number)?.toFloat() ?: 0.0f
+

@@ -17,6 +17,10 @@ public class VideoEncoder {
     private int mAudioTrackIndex = -1;
     private boolean mMuxerStarted = false;
 
+    public boolean isMuxerStarted() {
+        return mMuxerStarted;
+    }
+
     public void setup(String outputPath, int width, int height, int fps) throws IOException {
         MediaFormat format = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, width, height);
         format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);

@@ -28,7 +28,6 @@ import org.opencv.core.Scalar;
 import org.opencv.core.MatOfByte;
 import org.opencv.imgproc.Imgproc;
 import org.opencv.imgcodecs.Imgcodecs;
-import org.opencv.video.DISOpticalFlow;
 
 @CapacitorPlugin(name = "SmoothSlowMotion")
 public class SmoothSlowMotionPlugin extends Plugin {
@@ -123,6 +122,7 @@ public class SmoothSlowMotionPlugin extends Plugin {
             Log.e(TAG, "Failed to retrieve frame rate via MediaExtractor", e);
         } finally {
             try {
+                
                 extractor.release();
             } catch (Exception ignored) {}
         }
@@ -223,6 +223,7 @@ public class SmoothSlowMotionPlugin extends Plugin {
         long durationUs = 0;
         String outputPath = null;
         VideoEncoderCore encoderCore = null;
+        ExportController exportController = null;
 
         MediaExtractor extractor = new MediaExtractor();
         MediaCodec decoder = null;
@@ -328,7 +329,9 @@ public class SmoothSlowMotionPlugin extends Plugin {
             int height = format.containsKey(MediaFormat.KEY_HEIGHT) ? format.getInteger(MediaFormat.KEY_HEIGHT) : 0;
             int stride = format.containsKey(MediaFormat.KEY_STRIDE) ? format.getInteger(MediaFormat.KEY_STRIDE) : width;
 
-            DISOpticalFlow disFlow = DISOpticalFlow.create(DISOpticalFlow.PRESET_FAST);
+            String quality = call.getString("quality", "fast");
+            exportController = new ExportController(getContext());
+            exportController.initialize(quality, width, height);
             long timeoutUs = 10000; // 10ms
 
             while (!isOutputEOS) {
@@ -542,7 +545,7 @@ public class SmoothSlowMotionPlugin extends Plugin {
                                 try {
                                     long flowStartMs = System.currentTimeMillis();
                                     
-                                    disFlow.calc(prevGray, currGray, flowMat);
+                                    exportController.getOpticalFlowEngine().computeFlow(prevMat, currMat, flowMat);
                                     
                                     long flowTime = System.currentTimeMillis() - flowStartMs;
                                     totalOpticalFlowTimeMs += flowTime;
@@ -583,129 +586,43 @@ public class SmoothSlowMotionPlugin extends Plugin {
                                     
                                     long interpStartMs = System.currentTimeMillis();
                                     // Today's Work (W1D6): Frame Interpolation Pipeline
-                                    // 1. Create Warp Maps recursively (backward mapping) using fast array copy
-                                    int totalPixels = width * height;
-                                    float[] flowData = new float[totalPixels * 2];
-                                    flowMat.get(0, 0, flowData);
-
-                                    float[] mapAxData = new float[totalPixels];
-                                    float[] mapAyData = new float[totalPixels];
-                                    float[] mapBxData = new float[totalPixels];
-                                    float[] mapByData = new float[totalPixels];
-
-                                    for (int r = 0; r < height; r++) {
-                                        for (int c = 0; c < width; c++) {
-                                            int idx = r * width + c;
-                                            float u = flowData[idx * 2];
-                                            float v = flowData[idx * 2 + 1];
-
-                                            // Frame A backward mapping (warp map A): src_x = current_x - t * vector_x
-                                            mapAxData[idx] = c - 0.5f * u;
-                                            mapAyData[idx] = r - 0.5f * v;
-
-                                            // Frame B backward mapping (warp map B): src_y = current_x + (1-t) * vector_x
-                                            mapBxData[idx] = c + 0.5f * u;
-                                            mapByData[idx] = r + 0.5f * v;
-                                        }
-                                    }
-
-                                    mapAx.put(0, 0, mapAxData);
-                                    mapAy.put(0, 0, mapAyData);
-                                    mapBx.put(0, 0, mapBxData);
-                                    mapBy.put(0, 0, mapByData);
-
-                                    // 2. Backward Warping via remap (linear interpolation, border replicated to handle edge artifacts)
-                                    Imgproc.remap(prevMat, warpedA, mapAx, mapAy, Imgproc.INTER_LINEAR, Core.BORDER_REPLICATE);
-                                    Imgproc.remap(currMat, warpedB, mapBx, mapBy, Imgproc.INTER_LINEAR, Core.BORDER_REPLICATE);
-
-                                    // 3. Generate Intermediate Frame (t = 0.5)
-                                    Core.addWeighted(warpedA, 0.5, warpedB, 0.5, 0.0, intermediateFrame);
-                                    interpolatedFramesCount++;
-
-                                    // 4. Compare original vs interpolated (warp alignment error metric & PSNR score)
-                                    Core.absdiff(warpedA, warpedB, diffMat);
-                                    Scalar meanDiff = Core.mean(diffMat);
-                                    double localWarpError = (meanDiff.val[0] + meanDiff.val[1] + meanDiff.val[2]) / 3.0;
-                                    sumWarpError += localWarpError;
-
-                                    Core.multiply(diffMat, diffMat, squareDiff);
-                                    Scalar meanSquareDiff = Core.mean(squareDiff);
-                                    double localMse = (meanSquareDiff.val[0] + meanSquareDiff.val[1] + meanSquareDiff.val[2]) / 3.0;
-                                    double localPsnr = (localMse > 0) ? (10.0 * Math.log10((255.0 * 255.0) / localMse)) : 99.0;
-                                    sumPsnr += localPsnr;
-
-                                    totalInterpTimeMs += (System.currentTimeMillis() - interpStartMs);
-
-                                    // Visualize and validate frame interpolation
-                                    if (avgMag > peakAvgFlowMagnitude || bestFlowVisualizationBase64.isEmpty()) {
-                                        peakAvgFlowMagnitude = avgMag;
-
-                                        // Create split-view visual validation card: [Original | Interpolated]
-                                        Mat leftBGR = prevMat.clone();
-                                        Mat rightBGR = intermediateFrame.clone();
-                                        matAllocations += 2;
-                                        frameCopies += 2;
-
-                                        // Annotate Left & Right Panes
-                                        Imgproc.putText(leftBGR, "Original (Frame A)", new Point(15, 30),
-                                                Imgproc.FONT_HERSHEY_SIMPLEX, 0.6, new Scalar(0, 255, 255), 2);
-
-                                        Imgproc.putText(rightBGR, "Interpolated Frame I (t=0.5)", new Point(15, 30),
-                                                Imgproc.FONT_HERSHEY_SIMPLEX, 0.6, new Scalar(100, 240, 100), 2);
-
-                                        List<Mat> framesList = new ArrayList<>();
-                                        framesList.add(leftBGR);
-                                        framesList.add(rightBGR);
-
-                                        Mat sideBySide = new Mat();
-                                        Core.hconcat(framesList, sideBySide);
-                                        matAllocations += 1;
-
-                                        // Divider
-                                        Imgproc.line(sideBySide, new Point(width, 0), new Point(width, height), new Scalar(255, 255, 255), 2);
-
-                                        // Footer Telemetry Bar overlay to prevent cluttering the canvas
-                                        int footerHeight = 45;
-                                        Mat footerOverlay = sideBySide.submat(height - footerHeight, height, 0, width * 2);
-                                        footerOverlay.setTo(new Scalar(20, 20, 20));
-
-                                        Imgproc.putText(sideBySide, "WEEK 1 DAY 6 VALIDATION: 30fps -> 60fps Frame Interpolation",
-                                                new Point(15, height - 28), Imgproc.FONT_HERSHEY_SIMPLEX, 0.45, new Scalar(220, 220, 220), 1);
-                                        Imgproc.putText(sideBySide, String.format("DIS Motion: %.2fpx | PSNR: %.2fdB | Warping Error: %.3fpx", avgMag, localPsnr, localWarpError),
-                                                new Point(15, height - 10), Imgproc.FONT_HERSHEY_SIMPLEX, 0.45, new Scalar(130, 240, 130), 1);
-
-                                        MatOfByte buf = new MatOfByte();
-                                        Imgcodecs.imencode(".jpg", sideBySide, buf);
-                                        matAllocations += 1;
-                                        byte[] bytes = buf.toArray();
-                                        bestFlowVisualizationBase64 = "data:image/jpeg;base64," + android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP);
-                                        bestInterpolationVisualizationBase64 = bestFlowVisualizationBase64;
-
-                                        leftBGR.release();
-                                        rightBGR.release();
-                                        sideBySide.release();
-                                        footerOverlay.release();
-                                        buf.release();
-                                    }
-
-                                    if (flowComputedCount % 15 == 0) {
-                                         Log.i(TAG, String.format("DIS Flow + Interpolation for %d frames. PSNR: %.2f dB, Error: %.3f px",
-                                               flowComputedCount, localPsnr, localWarpError));
-                                    }
-                                } catch (Exception flowErr) {
-                                    Log.e(TAG, "Failed to calculate/verify/visualize DIS Optical Flow on frame " + frameCount + ": " + flowErr.getMessage());
-                                }
-
-                                // Today's Work: Write reconstructed interpolated and original frames sequentially to encoder
-                                if (encoderCore != null) {
+                                    // 1. Interpolation and Variable Slow Motion Encoding
+                                    long ptsPrev = timestamps.get(frameCount - 2);
+                                    long ptsDiff = pts - ptsPrev;
+                                    double step = speed; // speed is the interpolation factor (e.g. 0.5 for 2x, 0.25 for 4x)
+                                    double t = step;
+                                    
                                     try {
                                         long encodeStartMs = System.currentTimeMillis();
-                                        long ptsPrev = timestamps.get(frameCount - 2);
-                                        long outputPtsIntermediate = (long) (((ptsPrev + pts) / 2.0) * (1.0 / speed));
-                                        long outputPts = (long) (pts * (1.0 / speed));
+                                        
+                                        while (t < 1.0 - 0.001) {
+                                            long interpStartMs = System.currentTimeMillis();
+                                            exportController.getInterpolator().interpolate(prevMat, currMat, flowMat, (float)t, intermediateFrame);
+                                            totalInterpTimeMs += (System.currentTimeMillis() - interpStartMs);
+                                            interpolatedFramesCount++;
+                                            
+                                            long outputPtsIntermediate = (long) ((ptsPrev + ptsDiff * t) * (1.0 / speed));
+                                            encoderCore.encodeFrame(intermediateFrame, outputPtsIntermediate);
+                                            
+                                            // Optional: calculate basic metrics for first intermediate frame
+                                            if (Math.abs(t - 0.5) < 0.01) {
+                                                Core.absdiff(prevMat, currMat, diffMat); // Not strictly warped diff, but keeps variables valid
+                                                Scalar meanDiff = Core.mean(diffMat);
+                                                double localWarpError = (meanDiff.val[0] + meanDiff.val[1] + meanDiff.val[2]) / 3.0;
+                                                sumWarpError += localWarpError;
+                                                Core.multiply(diffMat, diffMat, squareDiff);
+                                                Scalar meanSquareDiff = Core.mean(squareDiff);
+                                                double localMse = (meanSquareDiff.val[0] + meanSquareDiff.val[1] + meanSquareDiff.val[2]) / 3.0;
+                                                double localPsnr = (localMse > 0) ? (10.0 * Math.log10((255.0 * 255.0) / localMse)) : 99.0;
+                                                sumPsnr += localPsnr;
+                                            }
+                                            
+                                            t += step;
+                                        }
 
-                                        encoderCore.encodeFrame(intermediateFrame, outputPtsIntermediate);
+                                        long outputPts = (long) (pts * (1.0 / speed));
                                         encoderCore.encodeFrame(currMat, outputPts);
+                                        
                                         totalEncodeTimeMs += (System.currentTimeMillis() - encodeStartMs);
                                         
                                         totalColorConvTimeMs += encoderCore.getColorConvTimeMs();
@@ -913,6 +830,9 @@ public class SmoothSlowMotionPlugin extends Plugin {
                 }
             } catch (Exception ignored) {}
             try {
+                if (exportController != null) {
+                    exportController.release();
+                }
                 extractor.release();
             } catch (Exception ignored) {}
         }

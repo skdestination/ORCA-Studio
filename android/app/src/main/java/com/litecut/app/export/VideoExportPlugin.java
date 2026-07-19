@@ -2,6 +2,7 @@ package com.litecut.app.export;
 
 import android.graphics.SurfaceTexture;
 import android.media.MediaCodec;
+import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.opengl.EGLSurface;
 import android.opengl.GLES20;
@@ -29,40 +30,71 @@ public class VideoExportPlugin extends Plugin {
             return;
         }
 
+        // Sanitize paths by stripping the file:// prefix for native MediaCodec use
+        final String finalInputPath = inputPath.startsWith("file://") ? inputPath.substring(7) : inputPath;
+        final String finalOutputPath = outputPath.startsWith("file://") ? outputPath.substring(7) : outputPath;
+
         new Thread(() -> {
             EglCore eglCore = null;
             VideoEncoder encoder = null;
             VideoDecoder decoder = null;
+            MediaExtractor audioExtractor = null;
             try {
                 eglCore = new EglCore();
                 encoder = new VideoEncoder();
-                encoder.setup(outputPath, width, height, fps);
+                encoder.setup(finalOutputPath, width, height, fps);
                 
                 EGLSurface encoderSurface = eglCore.createWindowSurface(encoder.getInputSurface());
+                eglCore.makeCurrent(encoderSurface);
+                
+                renderer = new TextureRender();
+                renderer.surfaceCreated();
                 
                 int[] textures = new int[1];
                 GLES20.glGenTextures(1, textures, 0);
+                int error = GLES20.glGetError();
+                if (error != GLES20.GL_NO_ERROR) throw new RuntimeException("glGenTextures error: " + error);
+                
                 int textureId = textures[0];
+                if (textureId == 0) throw new RuntimeException("failed to generate texture");
                 
                 SurfaceTexture st = new SurfaceTexture(textureId);
                 Surface decoderSurface = new Surface(st);
-                TextureRender renderer = new TextureRender();
                 
                 decoder = new VideoDecoder();
-                decoder.setup(inputPath, decoderSurface);
+                decoder.setup(finalInputPath, decoderSurface);
                 
                 float[] stMatrix = new float[16];
                 
-                // Identify Audio Track
-                int audioTrackIndex = -1;
-                for (int i = 0; i < decoder.getExtractor().getTrackCount(); i++) {
+                // Get video duration to compute accurate progress updates
+                long videoDurationUs = 0;
+                int trackCount = decoder.getExtractor().getTrackCount();
+                for (int i = 0; i < trackCount; i++) {
                     MediaFormat format = decoder.getExtractor().getTrackFormat(i);
-                    if (format.getString(MediaFormat.KEY_MIME).startsWith("audio/")) {
-                        audioTrackIndex = i;
-                        encoder.addAudioTrack(format);
-                        decoder.getExtractor().selectTrack(i);
+                    if (format.getString(MediaFormat.KEY_MIME).startsWith("video/")) {
+                        if (format.hasKey(MediaFormat.KEY_DURATION)) {
+                            videoDurationUs = format.getLong(MediaFormat.KEY_DURATION);
+                        }
                         break;
                     }
+                }
+
+                // Create a completely separate extractor for audio to avoid track conflicts in the main decoder
+                int audioTrackIndex = -1;
+                MediaExtractor tempExtractor = new MediaExtractor();
+                tempExtractor.setDataSource(finalInputPath);
+                for (int i = 0; i < tempExtractor.getTrackCount(); i++) {
+                    MediaFormat format = tempExtractor.getTrackFormat(i);
+                    if (format.getString(MediaFormat.KEY_MIME).startsWith("audio/")) {
+                        audioExtractor = tempExtractor;
+                        audioTrackIndex = i;
+                        audioExtractor.selectTrack(i);
+                        encoder.addAudioTrack(format);
+                        break;
+                    }
+                }
+                if (audioExtractor == null) {
+                    tempExtractor.release();
                 }
                 
                 final Object frameSyncObject = new Object();
@@ -89,13 +121,23 @@ public class VideoExportPlugin extends Plugin {
                         break;
                     }
                     
-                    // Process Audio
-                    if (audioTrackIndex != -1) {
-                        int sampleSize = decoder.getExtractor().readSampleData(audioBuffer, 0);
-                        if (sampleSize > 0) {
-                            audioBufferInfo.set(0, sampleSize, decoder.getExtractor().getSampleTime(), decoder.getExtractor().getSampleFlags());
-                            encoder.writeAudioSample(audioBuffer, audioBufferInfo);
-                            decoder.getExtractor().advance();
+                    // Process Audio sequentially without disturbing the video decoder
+                    if (audioExtractor != null && audioTrackIndex != -1) {
+                        while (true) {
+                            int sampleSize = audioExtractor.readSampleData(audioBuffer, 0);
+                            if (sampleSize < 0) {
+                                break;
+                            }
+                            long sampleTime = audioExtractor.getSampleTime();
+                            
+                            if (encoder.isMuxerStarted()) {
+                                audioBufferInfo.set(0, sampleSize, sampleTime, audioExtractor.getSampleFlags());
+                                encoder.writeAudioSample(audioBuffer, audioBufferInfo);
+                                audioExtractor.advance();
+                            } else {
+                                // Break and wait for the video encoder to output format and start the muxer
+                                break;
+                            }
                         }
                     }
                     
@@ -129,11 +171,30 @@ public class VideoExportPlugin extends Plugin {
                         encoder.drainEncoder(false);
                         
                         framesProcessed++;
-                        if (framesProcessed % 30 == 0) {
-                            JSObject progressData = new JSObject();
-                            progressData.put("progress", (double)framesProcessed / 300.0);
-                            notifyListeners("exportProgress", progressData);
+                        if (framesProcessed % 15 == 0) {
+                            long sampleTimeUs = decoder.getExtractor().getSampleTime();
+                            if (videoDurationUs > 0 && sampleTimeUs > 0) {
+                                double progress = (double) sampleTimeUs / (double) videoDurationUs;
+                                if (progress > 1.0) progress = 1.0;
+                                JSObject progressData = new JSObject();
+                                progressData.put("progress", progress);
+                                notifyListeners("exportProgress", progressData);
+                            }
                         }
+                    }
+                }
+
+                // Copy any remaining audio samples that are left at the end of the file
+                if (audioExtractor != null && audioTrackIndex != -1) {
+                    while (true) {
+                        int sampleSize = audioExtractor.readSampleData(audioBuffer, 0);
+                        if (sampleSize < 0) {
+                            break;
+                        }
+                        long sampleTime = audioExtractor.getSampleTime();
+                        audioBufferInfo.set(0, sampleSize, sampleTime, audioExtractor.getSampleFlags());
+                        encoder.writeAudioSample(audioBuffer, audioBufferInfo);
+                        audioExtractor.advance();
                     }
                 }
                 
@@ -152,6 +213,13 @@ public class VideoExportPlugin extends Plugin {
                 if (decoder != null) {
                     try {
                         decoder.release();
+                    } catch (Exception e) {
+                        // ignore
+                    }
+                }
+                if (audioExtractor != null) {
+                    try {
+                        audioExtractor.release();
                     } catch (Exception e) {
                         // ignore
                     }

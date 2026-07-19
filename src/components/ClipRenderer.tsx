@@ -1,6 +1,7 @@
 import React from "react";
 import { AlertCircle, Activity } from "lucide-react";
 import { Clip } from "../types";
+import { TimelineThumbnail } from "./TimelineThumbnail";
 
 interface ClipRendererProps {
   clip: Clip;
@@ -33,6 +34,28 @@ export const ClipRenderer = React.memo(({
 
   return (
     <div className="absolute inset-0">
+      {/* Background WebP video thumbnails */}
+      {clip.type === "video" && clip.src && (
+        <div className="absolute inset-0 opacity-25 pointer-events-none overflow-hidden flex flex-row">
+          {Array.from({ length: Math.ceil(clip.durationSeconds / 2) }).map((_, i) => {
+            const numThumbnails = Math.ceil(clip.durationSeconds / 2);
+            const timeOffset = clip.trimStartSeconds + i * 2;
+            const thumbWidth = i === numThumbnails - 1 
+              ? (clip.durationSeconds - i * 2) * pixelsPerSecond 
+              : 2 * pixelsPerSecond;
+            return (
+              <TimelineThumbnail
+                key={i}
+                clipId={clip.id}
+                sourceUrl={clip.src!}
+                timeOffset={timeOffset}
+                width={thumbWidth}
+                pixelsPerSecond={pixelsPerSecond}
+              />
+            );
+          })}
+        </div>
+      )}
       {/* Type indicator icon */}
       <div className={`absolute max-w-full overflow-hidden whitespace-nowrap pl-2 flex items-center gap-1 ${clip.type === "audio" ? "inset-y-0 z-20 pointer-events-none" : `${isCompactMode ? "top-0.5" : "top-1"} pointer-events-none`}`}>
         {isErrored && clip.type !== "text" && (

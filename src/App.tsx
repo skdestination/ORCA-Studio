@@ -87,6 +87,7 @@ import { ExportOverlay } from "./components/ExportOverlay";
 
 import { Screen, Layer, Keyframe, Clip, Project } from "./types";
 import { TimelineBridge } from "./lib/timelineBridge";
+import { PlaybackEngine } from "./lib/playbackEngine";
 import { getInterpolatedProps } from "./lib/utils";
 import { VideoRenderer, AudioRenderer } from "./components/Renderers";
 import { MinusIcon, CompactRulerControl, SpeedRulerControl, ScaleRulerControl } from "./components/Controls";
@@ -128,6 +129,8 @@ import { MaskControlOverlay } from "./components/MaskControlOverlay";
 import { CropControlOverlay } from "./components/CropControlOverlay";
 
 import { getFile } from "./lib/db";
+import { TimelineThumbnail } from "./components/TimelineThumbnail";
+import { thumbnailProvider } from "./lib/thumbnailCache";
 
 const getBestSupportedVideoType = () => {
   const isSafari = typeof navigator !== "undefined" && /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
@@ -219,78 +222,108 @@ const TimelineRulerTicks = React.memo(({
   pixelsPerSecond,
   zoomLevel
 }: TimelineRulerTicksProps) => {
-  return (
-    <>
-      {Array.from({ length: Math.ceil(maxTimelineDuration) + 1 }).map(
-        (_, i) => {
-          let step = 1;
-          if (pixelsPerSecond < 2) step = 300; // marks every 5 mins
-          else if (pixelsPerSecond < 5) step = 60; // marks every 1 min
-          else if (pixelsPerSecond < 10) step = 30; // very zoomed out
-          else if (pixelsPerSecond < 20) step = 10;
-          else if (pixelsPerSecond < 35) step = 5;
-          else if (pixelsPerSecond < 70) step = 2; // normal default is 100
-          
-          const showText = i % step === 0;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-          // Skip rendering the tick entirely if it's too squished
-          const hideTick = pixelsPerSecond < 2 ? i % 60 !== 0 : (pixelsPerSecond < 5 ? i % 10 !== 0 : false);
-          if (hideTick) return null;
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    if (!Number.isFinite(maxTimelineDuration) || !Number.isFinite(pixelsPerSecond)) {
+      console.error('Invalid ruler values:', { maxTimelineDuration, pixelsPerSecond });
+      return;
+    }
+    
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-          const mins = Math.floor(i / 60);
-          const secs = i % 60;
-          const formattedLabel = `${mins}:${secs.toString().padStart(2, "0")}`;
+    const dpr = window.devicePixelRatio || 1;
+    const width = maxTimelineDuration * pixelsPerSecond;
+    const height = canvas.parentElement?.clientHeight || 15;
 
-          return (
-            <div
-              key={i}
-              className="absolute h-full w-0 pointer-events-none"
-              style={{ left: `${i * pixelsPerSecond}px` }}
-            >
-              {/* Premium micro tick line at the bottom */}
-              <div
-                className={`absolute bottom-0 w-[1px] pointer-events-none transition-colors duration-150 ${
-                  showText ? "h-[5px] bg-zinc-500/80" : "h-[3px] bg-zinc-700/50"
-                }`}
-              />
-              
-              {showText && (
-                <span
-                  className="absolute left-0 -translate-x-1/2 top-[1.5px] text-[7.5px] text-zinc-450 hover:text-zinc-300 font-semibold font-mono tracking-wider select-none transition-colors duration-150 leading-none whitespace-nowrap"
-                  style={{ textShadow: "none" }}
-                >
-                  {formattedLabel}
-                </span>
-              )}
-              {/* Sub-ticks for zoom */}
-              {pixelsPerSecond >= 80 ? (
-                Array.from({ length: 9 }).map((_, subIndex) => {
-                  const isHalf = subIndex === 4;
-                  return (
-                    <div
-                      key={subIndex}
-                      className={`absolute bottom-0 w-[1px] ${isHalf ? "bg-zinc-600/70" : "bg-zinc-800/40"} pointer-events-none`}
-                      style={{
-                        left: `${(subIndex + 1) * (pixelsPerSecond / 10)}px`,
-                        height: isHalf ? "3.5px" : "1.5px",
-                      }}
-                    />
-                  );
-                })
-              ) : pixelsPerSecond >= 40 ? (
-                <div
-                  className="absolute bottom-0 w-[1px] bg-zinc-600/50 pointer-events-none"
-                  style={{
-                    left: `${pixelsPerSecond / 2}px`,
-                    height: "3px",
-                  }}
-                />
-              ) : null}
-            </div>
-          );
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, width, height);
+
+    ctx.font = "600 7.5px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+
+    const totalTicks = Math.ceil(maxTimelineDuration) + 1;
+    for (let i = 0; i < totalTicks; i++) {
+      let step = 1;
+      if (pixelsPerSecond < 2) step = 300;
+      else if (pixelsPerSecond < 5) step = 60;
+      else if (pixelsPerSecond < 10) step = 30;
+      else if (pixelsPerSecond < 20) step = 10;
+      else if (pixelsPerSecond < 35) step = 5;
+      else if (pixelsPerSecond < 70) step = 2;
+
+      const showText = i % step === 0;
+
+      const hideTick = pixelsPerSecond < 2 ? i % 60 !== 0 : (pixelsPerSecond < 5 ? i % 10 !== 0 : false);
+      if (hideTick) continue;
+
+      const x = i * pixelsPerSecond;
+
+      ctx.beginPath();
+      ctx.lineWidth = 1;
+      if (showText) {
+        ctx.strokeStyle = "rgba(113, 113, 122, 0.8)";
+        ctx.moveTo(x, height - 5);
+        ctx.lineTo(x, height);
+      } else {
+        ctx.strokeStyle = "rgba(63, 63, 70, 0.5)";
+        ctx.moveTo(x, height - 3);
+        ctx.lineTo(x, height);
+      }
+      ctx.stroke();
+
+      if (showText) {
+        const mins = Math.floor(i / 60);
+        const secs = i % 60;
+        const formattedLabel = `${mins}:${secs.toString().padStart(2, "0")}`;
+        ctx.fillStyle = "rgba(161, 161, 170, 0.9)";
+        ctx.fillText(formattedLabel, x, 1.5);
+      }
+
+      if (pixelsPerSecond >= 80) {
+        for (let subIndex = 0; subIndex < 9; subIndex++) {
+          const isHalf = subIndex === 4;
+          const subX = x + (subIndex + 1) * (pixelsPerSecond / 10);
+          ctx.beginPath();
+          ctx.lineWidth = 1;
+          if (isHalf) {
+            ctx.strokeStyle = "rgba(82, 82, 91, 0.7)";
+            ctx.moveTo(subX, height - 3.5);
+            ctx.lineTo(subX, height);
+          } else {
+            ctx.strokeStyle = "rgba(39, 39, 42, 0.4)";
+            ctx.moveTo(subX, height - 1.5);
+            ctx.lineTo(subX, height);
+          }
+          ctx.stroke();
         }
-      )}
-    </>
+      } else if (pixelsPerSecond >= 40) {
+        const subX = x + pixelsPerSecond / 2;
+        ctx.beginPath();
+        ctx.lineWidth = 1;
+        ctx.strokeStyle = "rgba(82, 82, 91, 0.5)";
+        ctx.moveTo(subX, height - 3);
+        ctx.lineTo(subX, height);
+        ctx.stroke();
+      }
+    }
+  }, [maxTimelineDuration, pixelsPerSecond, zoomLevel]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute top-0 left-0 pointer-events-none"
+    />
   );
 }, (prev, next) => {
   return (
@@ -299,6 +332,98 @@ const TimelineRulerTicks = React.memo(({
     prev.zoomLevel === next.zoomLevel
   );
 });
+
+const videoThumbnailCache: Record<string, string> = {};
+
+const TimelineVideoThumbnail = React.memo(({
+  src,
+  onError,
+  className,
+}: {
+  src: string;
+  onError?: () => void;
+  className?: string;
+}) => {
+  const [thumbUrl, setThumbUrl] = useState<string | null>(() => {
+    return videoThumbnailCache[src] || null;
+  });
+
+  useEffect(() => {
+    if (thumbUrl) return;
+
+    if (videoThumbnailCache[src]) {
+      setThumbUrl(videoThumbnailCache[src]);
+      return;
+    }
+
+    let active = true;
+    const video = document.createElement("video");
+    video.crossOrigin = "anonymous";
+    video.muted = true;
+    video.playsInline = true;
+    video.preload = "auto";
+    video.src = src;
+    video.currentTime = 0.001;
+
+    const onSeeked = () => {
+      if (!active) return;
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth || 320;
+        canvas.height = video.videoHeight || 180;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+          videoThumbnailCache[src] = dataUrl;
+          setThumbUrl(dataUrl);
+        }
+      } catch (err) {
+        console.error("Failed to generate video thumbnail from URL:", src, err);
+        onError?.();
+      }
+      cleanup();
+    };
+
+    const onErr = () => {
+      if (!active) return;
+      console.warn("Error loading video for thumbnail:", src);
+      onError?.();
+      cleanup();
+    };
+
+    const cleanup = () => {
+      active = false;
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("error", onErr);
+      video.pause();
+      video.src = "";
+      video.load();
+    };
+
+    video.addEventListener("seeked", onSeeked);
+    video.addEventListener("error", onErr);
+    video.load();
+
+    return () => {
+      cleanup();
+    };
+  }, [src, thumbUrl, onError]);
+
+  if (!thumbUrl) {
+    return <div className={`${className} bg-zinc-900 animate-pulse`} />;
+  }
+
+  return (
+    <img
+      src={thumbUrl}
+      className={className}
+      draggable={false}
+      referrerPolicy="no-referrer"
+    />
+  );
+});
+TimelineVideoThumbnail.displayName = "TimelineVideoThumbnail";
 
 interface TimelineClipItemProps {
   clip: Clip;
@@ -329,6 +454,7 @@ const TimelineClipItem = React.memo(({
 }: TimelineClipItemProps) => {
   const isSelected = selectedClipId === clip.id;
   const isMultiselected = selectedClipIds.includes(clip.id);
+  const [isHovered, setIsHovered] = useState(false);
   
   // High-end premium gradient palettes for different clip types
   let gradientClass = "";
@@ -378,24 +504,24 @@ const TimelineClipItem = React.memo(({
   }
 
   const roundedClass = clip.type === "audio" ? "rounded-xl" : "rounded-lg";
-  const scaleClass = isSelected ? "scale-[1.01] z-50" : isMultiselected ? "scale-[1.01] z-20" : "hover:scale-[1.005] z-10";
+  const scaleClass = isSelected ? "z-50" : isMultiselected ? "z-20" : "z-10";
   
   return (
     <div
       onPointerDown={(e) => onPointerDown(e, clip)}
-      className={`absolute h-[28px] sm:h-[34px] overflow-hidden flex items-center cursor-pointer select-none border backdrop-blur-sm transition-all duration-200 transform-gpu
+      onPointerEnter={() => setIsHovered(true)}
+      onPointerLeave={() => setIsHovered(false)}
+      className={`absolute h-[28px] sm:h-[34px] overflow-hidden flex items-center cursor-pointer select-none border transition-all duration-200 transform-gpu
                  ${roundedClass} ${gradientClass} ${borderClass} ${glowClass} ${scaleClass}
                  ${layerHiddenOrMuted ? "grayscale opacity-25 shadow-none" : ""}
                `}
       style={{
-        left: clip.leftSeconds * pixelsPerSecond,
+        transform: `translate3d(${clip.leftSeconds * pixelsPerSecond}px, 0px, 0px)`,
         width: Math.max(2, clip.durationSeconds * pixelsPerSecond),
         touchAction: "none",
-        willChange: "left, width",
+        willChange: "transform, width",
       }}
     >
-      {/* High-glass aesthetic top specular line */}
-      <div className="absolute inset-x-0 top-0 h-[38%] bg-gradient-to-b from-white/[0.08] to-transparent pointer-events-none z-20" />
       
       {/* Keyframes Overlay */}
       {clip.keyframes && clip.keyframes.length > 0 && (() => {
@@ -492,8 +618,8 @@ const TimelineClipItem = React.memo(({
       <div className="absolute inset-0 bg-black/15 pointer-events-none z-10"></div>
       
       {clip.type === "text" && (
-        <div className="w-full h-full flex items-center justify-center px-4 pointer-events-none overflow-hidden pb-1 pt-3">
-          <span className="text-[11px] font-extrabold text-white/95 truncate drop-shadow-md bg-black/55 px-2.5 py-0.5 rounded-md border border-white/10 tracking-wide">
+        <div className="w-full h-full flex items-start justify-start px-2 pt-1 pointer-events-none overflow-hidden">
+          <span className="text-[11px] font-extrabold text-white/95 truncate tracking-wide">
             {clip.text || "Type text..."}
           </span>
         </div>
@@ -507,20 +633,30 @@ const TimelineClipItem = React.memo(({
             draggable={false}
             onError={() => onClipError(clip.id)}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/25 to-transparent pointer-events-none z-10"></div>
         </>
       )}
       
       {clip.type === "video" && (
         <>
-          <video
-            src={clip.src ? clip.src + "#t=0.001" : undefined}
-            className="absolute inset-0 w-full h-full object-cover opacity-60 pointer-events-none"
-            draggable={false}
-            preload="metadata"
-            onError={() => onClipError(clip.id)}
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/25 to-transparent pointer-events-none z-10"></div>
+          <div className="absolute inset-0 opacity-40 pointer-events-none overflow-hidden flex flex-row">
+            {Array.from({ length: Math.ceil(clip.durationSeconds / 2) }).map((_, i) => {
+              const numThumbnails = Math.ceil(clip.durationSeconds / 2);
+              const timeOffset = clip.trimStartSeconds + i * 2;
+              const thumbWidth = i === numThumbnails - 1 
+                ? (clip.durationSeconds - i * 2) * pixelsPerSecond 
+                : 2 * pixelsPerSecond;
+              return (
+                <TimelineThumbnail
+                  key={i}
+                  clipId={clip.id}
+                  sourceUrl={clip.src || ""}
+                  timeOffset={timeOffset}
+                  width={thumbWidth}
+                  pixelsPerSecond={pixelsPerSecond}
+                />
+              );
+            })}
+          </div>
         </>
       )}
       
@@ -549,39 +685,6 @@ const TimelineClipItem = React.memo(({
           </svg>
         );
       })()}
-
-      {/* Type indicator icon with gorgeous modern styling */}
-      <div className={`absolute max-w-full overflow-hidden whitespace-nowrap pl-2 flex items-center gap-1 ${clip.type === "audio" ? "inset-y-0 z-20 pointer-events-none" : `top-1 pointer-events-none`}`}>
-        {isErrored && clip.type !== "text" && (
-          <span className="text-[8px] font-extrabold text-red-200 uppercase drop-shadow-md pb-0.5 px-1.5 bg-red-600/90 rounded-md inline-flex items-center gap-1">
-            <AlertCircle size={8} /> MISSING
-          </span>
-        )}
-        
-        {clip.type === "audio" ? (
-          <span className={`text-[10px] py-0.5 px-2 font-extrabold text-purple-200 tracking-wider drop-shadow-sm bg-black/65 border border-purple-500/30 rounded-md inline-flex items-center backdrop-blur-md shadow-sm gap-1 ml-0.5 sm:ml-1 scale-95 origin-left`}>
-            <Music size={10} className="text-purple-400 shrink-0" />
-            AUDIO {layerHiddenOrMuted && "(MUTED)"}
-          </span>
-        ) : (
-          <span className={`text-[9px] py-0.5 px-1.5 font-extrabold tracking-wider text-zinc-200 drop-shadow-sm bg-black/65 border border-white/10 rounded-md shadow-sm backdrop-blur-md inline-flex items-center uppercase scale-95 origin-left gap-1`}>
-            {clip.type === "video" ? (
-              <Video size={10} className="text-blue-400 shrink-0" />
-            ) : clip.type === "text" ? (
-              <Type size={10} className="text-amber-400 shrink-0" />
-            ) : (
-              <ImageIcon size={10} className="text-emerald-400 shrink-0" />
-            )}
-            {clip.type} {layerHiddenOrMuted && "(HIDDEN)"}
-          </span>
-        )}
-
-        {clip.opticalFlow && (
-          <span className="text-[8px] font-extrabold text-indigo-200 uppercase drop-shadow-md pb-0.5 px-1.5 bg-indigo-600/60 rounded-md inline-flex items-center gap-1">
-            <Sparkles size={8} className="text-indigo-300" /> SMOOTH
-          </span>
-        )}
-      </div>
 
       {/* Keyframe Markers and Slope Connections */}
       {clip.keyframes && clip.keyframes.length > 0 && (
@@ -756,11 +859,41 @@ export default function App() {
     [40, 70, 30, 80, 50, 100, 60, 40, 90, 50, 30, 70, 40, 80, 50, 60, 40, 90, 30]
   );
 
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [timelineScrollLeft, setTimelineScrollLeft] = useState(0);
+  const [timelineContainerWidth, setTimelineContainerWidth] = useState(0);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const pixelsPerSecond = BASE_PIXELS_PER_SECOND * zoomLevel;
+  
   const micStreamRef = useRef<MediaStream | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const timelineContainerRef = useRef<HTMLDivElement>(null);
-  const [timelineScrollLeft, setTimelineScrollLeft] = useState(0);
-  const [timelineContainerWidth, setTimelineContainerWidth] = useState(0);
+  const playbackEngineRef = useRef<PlaybackEngine>(
+    new PlaybackEngine(
+      (time) => setCurrentTime(time),
+      (playing) => setIsPlaying(playing)
+    )
+  );
+
+  // Update engine dependencies
+  useLayoutEffect(() => {
+    if (playbackEngineRef.current) {
+      playbackEngineRef.current.currentTimeRef = currentTimeRef;
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!playbackEngineRef.current) return;
+    playbackEngineRef.current.setDependencies({
+        isPlayingRef: { current: isPlaying },
+        isRecordingRef: { current: isRecording },
+        previewEndTargetTimeRef: previewEndTargetTimeRef,
+        setIsPlaying: setIsPlaying,
+        pixelsPerSecond: pixelsPerSecond,
+        timelineScrollRef: timelineScrollRef
+    });
+  }, [isPlaying, isRecording, pixelsPerSecond]);
+
   
   useLayoutEffect(() => {
     if (timelineContainerRef.current) {
@@ -1019,6 +1152,25 @@ export default function App() {
     clipsRef.current = clips;
   }, [clips]);
 
+  // Background WebP Thumbnail Visibility Tracking on mount, clips change, or zoom change
+  useEffect(() => {
+    const scrollContainer = timelineScrollRef.current;
+    if (scrollContainer) {
+      const scrollLeft = scrollContainer.scrollLeft;
+      const viewportWidth = scrollContainer.clientWidth || window.innerWidth;
+      const pps = pixelsPerSecond;
+      
+      thumbnailProvider.updateViewport(
+        scrollLeft,
+        viewportWidth,
+        pps,
+        clips
+          .filter(c => c.type === "video")
+          .map(c => ({ id: c.id, leftSeconds: c.leftSeconds, trimStartSeconds: c.trimStartSeconds || 0 }))
+      );
+    }
+  }, [clips, pixelsPerSecond]);
+
   // Automatically clean up any layer that has no clips, unless it was manually created via the "Add Layer" (+) button, or is the active voiceover layer.
   useEffect(() => {
     setLayers((prevLayers) => {
@@ -1044,8 +1196,10 @@ export default function App() {
   useEffect(() => {
     currentTimeRef.current = currentTime;
   }, [currentTime]);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(1); // 1 = normal, 2 = zoomed in
+
+  const activeTime = isPlaying ? currentTimeRef.current : currentTime;
+  const [activeClipsRevision, setActiveClipsRevision] = useState(0);
+
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [stabilizingProgress, setStabilizingProgress] = useState<{ clipId: string; progress: number; stage: string } | null>(null);
   // Stationary playhead position
@@ -1553,6 +1707,37 @@ export default function App() {
     return active;
   }, [isTransitionAllowed]);
 
+  useEffect(() => {
+    if (!isPlaying) return;
+
+    let lastHash = "";
+    let rafId: number;
+
+    const checkActiveClips = () => {
+      const curTime = currentTimeRef.current;
+      const activeHashes: string[] = [];
+      const visibleLayersList = layersRef.current.filter(l => !l.isHidden);
+      
+      for (const layer of visibleLayersList) {
+        const layerClips = clipsRef.current.filter((c) => c.layerId === layer.id);
+        const active = getLayerActiveClips(layerClips, curTime);
+        const hash = active.map(a => `${a.clip.id}_${a.role}`).join(",");
+        activeHashes.push(`${layer.id}:${hash}`);
+      }
+      const currentHash = activeHashes.join("|");
+
+      if (currentHash !== lastHash) {
+        lastHash = currentHash;
+        setActiveClipsRevision(prev => prev + 1);
+      }
+
+      rafId = requestAnimationFrame(checkActiveClips);
+    };
+
+    rafId = requestAnimationFrame(checkActiveClips);
+    return () => cancelAnimationFrame(rafId);
+  }, [isPlaying, getLayerActiveClips]);
+
   const addTransition = useCallback((incomingClipId: string, type: string, duration: number, silent = false) => {
     setClips((prevClips) =>
       prevClips.map((c) => {
@@ -2010,8 +2195,6 @@ export default function App() {
   const isRecordingRef = useRef(isRecording);
   const isInstantPreviewingRef = useRef(false);
   const previewEndTargetTimeRef = useRef<number | null>(null);
-  // Important: timeline zoom level affects pixels per second
-  const pixelsPerSecond = BASE_PIXELS_PER_SECOND * zoomLevel;
 
   // Sync scroll position when zoom level or pixelsPerSecond changes
   useEffect(() => {
@@ -2041,48 +2224,7 @@ export default function App() {
     }
   }, [isRecording]);
 
-  useEffect(() => {
-    const playLoop = (time: number) => {
-      if (lastTimeRef.current === undefined) lastTimeRef.current = time;
-      const deltaTime = (time - lastTimeRef.current) / 1000;
-      lastTimeRef.current = time;
-
-      if (isPlayingRef.current || isRecordingRef.current) {
-        setCurrentTime((prev) => {
-          const next = prev + deltaTime;
-
-          if (previewEndTargetTimeRef.current !== null && next >= previewEndTargetTimeRef.current) {
-            const capped = previewEndTargetTimeRef.current;
-            previewEndTargetTimeRef.current = null;
-            isInstantPreviewingRef.current = false;
-
-            setTimeout(() => {
-              setIsPlaying(false);
-            }, 0);
-
-            if (timelineScrollRef.current) {
-              const container = timelineScrollRef.current;
-              container.scrollLeft = Math.max(0, capped * pixelsPerSecond);
-            }
-            return capped;
-          }
-
-          if (timelineScrollRef.current) {
-            const container = timelineScrollRef.current;
-            container.scrollLeft = Math.max(0, next * pixelsPerSecond);
-          }
-          return next;
-        });
-      }
-      animationFrameRef.current = requestAnimationFrame(playLoop);
-    };
-    animationFrameRef.current = requestAnimationFrame(playLoop);
-
-    return () => {
-      if (animationFrameRef.current)
-        cancelAnimationFrame(animationFrameRef.current);
-    };
-  }, [pixelsPerSecond]);
+  // Playback loop handled by PlaybackEngine
 
   // Global Keyboard Shortcuts for Pro Editing Capabilities
   useEffect(() => {
@@ -2103,7 +2245,12 @@ export default function App() {
       // 1. Play / Pause
       if (e.key === " " || e.code === "Space") {
         e.preventDefault();
-        setIsPlaying((prev) => !prev);
+        if (!playbackEngineRef.current) return;
+        if (playbackEngineRef.current.isPlaying) {
+          playbackEngineRef.current.pause();
+        } else {
+          playbackEngineRef.current.play();
+        }
       }
 
       // 2. Delete clip
@@ -4019,11 +4166,7 @@ export default function App() {
     const initialScrollLeft = timelineScrollRef.current?.scrollLeft || 0;
     const initialScrollTop = timelineScrollRef.current?.scrollTop || 0;
 
-    let isDraggingMode = false;
     let didMove = false;
-    let dragTimeout = setTimeout(() => {
-      isDraggingMode = true;
-    }, 400); // 400ms hold delay to drag
 
     let isCreatingLayer = false;
     let fallbackLayerId = clip.layerId;
@@ -4033,18 +4176,13 @@ export default function App() {
       const deltaX = moveEvent.clientX - startX;
       const deltaY = moveEvent.clientY - startY;
 
-      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
-        didMove = true;
+      if (!didMove) {
+        if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+          didMove = true;
+        }
       }
 
-      if (!isDraggingMode) {
-        if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
-          clearTimeout(dragTimeout);
-          if (timelineScrollRef.current) {
-            timelineScrollRef.current.scrollLeft = initialScrollLeft - deltaX;
-            timelineScrollRef.current.scrollTop = initialScrollTop - deltaY;
-          }
-        }
+      if (!didMove) {
         return;
       }
 
@@ -4075,10 +4213,67 @@ export default function App() {
       }
       
       const finalDeltaSeconds = newLeftSeconds - initialLeftSeconds;
+      const finalDeltaPixels = finalDeltaSeconds * currentPixelsPerSecondRef.current;
+
+      // Visually move all selected clips
+      activeSelectedIds.forEach(id => {
+          const el = document.querySelector(`[data-clip-id="${id}"]`) as HTMLElement;
+          if (el) {
+              el.style.transform = `translateX(${finalDeltaPixels}px)`;
+              el.style.opacity = '0.6';
+          }
+      });
+    };
+
+    const handlePointerUp = async (upEvent: PointerEvent) => {
+      try {
+        target.releasePointerCapture(upEvent.pointerId);
+      } catch (err) {}
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      window.removeEventListener("pointercancel", handlePointerUp);
+
+      // Reset visual transform for all selected clips
+      activeSelectedIds.forEach(id => {
+          const el = document.querySelector(`[data-clip-id="${id}"]`) as HTMLElement;
+          if (el) {
+              el.style.transform = '';
+              el.style.opacity = '';
+          }
+      });
+
+      // Handle selection toggles on simple tap/click
+      if (!didMove) {
+        if (multiSelectActive) {
+          if (wasAlreadySelected) {
+            // Deselect on simple tap if it was already selected prior to mouse down
+            setSelectedClipIds(prev => prev.filter(id => id !== clip.id));
+          }
+          // Note: If it wasn't selected, it got added on Pointer Down, which stays selected. Perfect!
+        } else {
+          // Normal mode: select only this clip
+          setSelectedClipId(clip.id);
+        }
+        return;
+      }
+
+      // Calculate final position
+      const currentClickCanvasX = document.getElementById("timeline-inner")?.getBoundingClientRect() 
+        ? (upEvent.clientX - document.getElementById("timeline-inner")!.getBoundingClientRect().left) 
+        : (upEvent.clientX - startX);
+      const deltaSeconds = innerRectInit && document.getElementById("timeline-inner")?.getBoundingClientRect()
+        ? (currentClickCanvasX - initialClickCanvasX) / currentPixelsPerSecondRef.current
+        : (upEvent.clientX - startX) / currentPixelsPerSecondRef.current;
+      
+      let newLeftSeconds = initialLeftSeconds + deltaSeconds;
+      if (snappingEnabled) {
+        newLeftSeconds = await TimelineBridge.snapDrag(newLeftSeconds, clip.durationSeconds, activeSelectedIds, currentTime);
+      }
+      const finalDeltaSeconds = newLeftSeconds - initialLeftSeconds;
 
       const elementsUnder = document.elementsFromPoint(
-        moveEvent.clientX,
-        moveEvent.clientY,
+        upEvent.clientX,
+        upEvent.clientY,
       );
       const trackEl = elementsUnder.find((el) =>
         el.classList.contains("track-space"),
@@ -4090,69 +4285,12 @@ export default function App() {
         targetLayerId = trackEl.getAttribute("data-layer-id") || fallbackLayerId;
       }
 
-      if (activeSelectedIds.length === 1) {
-        const timelineInner = elementsUnder.find(
-          (el) => el.id === "timeline-inner",
-        );
-
-        if (trackEl) {
-          // Handled above
-        } else if (timelineInner && !isCreatingLayer) {
-          // Create layer
-          isCreatingLayer = true;
-          const newId = Math.random().toString(36).substring(7);
-          createdLayerId = newId;
-          setLayers((prev) => {
-            const minOrder = prev.length > 0 ? Math.min(...prev.map((l) => l.order)) : 0;
-            const updated = [...prev, { id: newId, order: minOrder - 1, isMuted: false, isHidden: false }];
-            TimelineBridge.initTimeline({ id: activeProjectId, ratio: currentProjectRatio, clips, layers: updated });
-            return updated;
-          });
-          targetLayerId = newId;
-          setTimeout(() => { isCreatingLayer = false; }, 200);
-        }
-
-        // If a layer was created but the user moved back / away from it to a different track
-        if (createdLayerId && targetLayerId !== createdLayerId) {
-          const idToDelete = createdLayerId;
-          createdLayerId = null;
-          setLayers((prev) => {
-            const updated = prev.filter((l) => l.id !== idToDelete);
-            TimelineBridge.initTimeline({ id: activeProjectId, ratio: currentProjectRatio, clips, layers: updated });
-            return updated;
-          });
-        }
-      }
-
-      TimelineBridge.moveClip(activeSelectedIds, finalDeltaSeconds, targetLayerId, fallbackLayerId).then(async () => {
-        const state = await TimelineBridge.getTimelineState();
-        setClips(state.clips);
-      });
-    };
-
-    const handlePointerUp = (upEvent: PointerEvent) => {
-      clearTimeout(dragTimeout);
-      try {
-        target.releasePointerCapture(upEvent.pointerId);
-      } catch (err) {}
-      window.removeEventListener("pointermove", handlePointerMove);
-      window.removeEventListener("pointerup", handlePointerUp);
-      window.removeEventListener("pointercancel", handlePointerUp);
-
-      // Handle selection toggles on simple tap/click
-      if (!didMove && !isDraggingMode) {
-        if (multiSelectActive) {
-          if (wasAlreadySelected) {
-            // Deselect on simple tap if it was already selected prior to mouse down
-            setSelectedClipIds(prev => prev.filter(id => id !== clip.id));
-          }
-          // Note: If it wasn't selected, it got added on Pointer Down, which stays selected. Perfect!
-        } else {
-          // Normal mode: select only this clip
-          setSelectedClipId(clip.id);
-        }
-      }
-
+      // Final move commit
+      await TimelineBridge.moveClip(activeSelectedIds, finalDeltaSeconds, targetLayerId, fallbackLayerId);
+      
+      const state = await TimelineBridge.getTimelineState();
+      setClips(state.clips);
+      
       // If a layer was created but the clip didn't end up on it, delete the layer
       if (createdLayerId) {
         const idToCheck = createdLayerId;
@@ -4162,6 +4300,7 @@ export default function App() {
         }
       }
     };
+
 
     window.addEventListener("pointermove", handlePointerMove);
     window.addEventListener("pointerup", handlePointerUp);
@@ -4185,6 +4324,8 @@ export default function App() {
     const innerRectInit = document.getElementById("timeline-inner")?.getBoundingClientRect();
     const initialClickCanvasX = innerRectInit ? (startX - innerRectInit.left) : startX;
 
+    let lastDeltaSeconds = 0;
+
     const handlePointerMove = async (moveEvent: PointerEvent) => {
       // --- AUTO SCROLL WHEN TRIMMING NEAR EDGES ---
       if (timelineScrollRef.current) {
@@ -4203,12 +4344,15 @@ export default function App() {
       const innerRectCurr = document.getElementById("timeline-inner")?.getBoundingClientRect();
       const currentClickCanvasX = innerRectCurr ? (moveEvent.clientX - innerRectCurr.left) : (moveEvent.clientX - startX);
       const deltaX = moveEvent.clientX - startX;
-      let deltaSeconds = innerRectInit && innerRectCurr 
+      let cumulativeDeltaSeconds = innerRectInit && innerRectCurr 
         ? (currentClickCanvasX - initialClickCanvasX) / currentPixelsPerSecondRef.current
         : deltaX / currentPixelsPerSecondRef.current;
 
+      const incrementalDeltaSeconds = cumulativeDeltaSeconds - lastDeltaSeconds;
+      lastDeltaSeconds = cumulativeDeltaSeconds;
+
       // Call Native/Fallback Trimming!
-      await TimelineBridge.trimClip(clip.id, side, deltaSeconds, snappingEnabled, currentTime);
+      await TimelineBridge.trimClip(clip.id, side, incrementalDeltaSeconds, snappingEnabled, currentTime);
 
       // Fetch the updated clip configuration
       const state = await TimelineBridge.getTimelineState();
@@ -4245,10 +4389,6 @@ export default function App() {
         }
 
         setCurrentTime(nextTime);
-        if (timelineScrollRef.current) {
-          timelineScrollRef.current.scrollLeft = nextTime * currentPixelsPerSecondRef.current;
-        }
-
         setClips(finalClips);
       }
     };
@@ -4267,7 +4407,7 @@ export default function App() {
   const maxTimelineDuration = useMemo(() => {
     let max = 0;
     clips.forEach((c) => {
-      if (c.leftSeconds + c.durationSeconds > max)
+      if (Number.isFinite(c.leftSeconds) && Number.isFinite(c.durationSeconds) && c.leftSeconds + c.durationSeconds > max)
         max = c.leftSeconds + c.durationSeconds;
     });
     return Math.max(max + 10, 30); // At least 30s buffer, always buffer + 10s
@@ -4674,7 +4814,7 @@ const renderEditor = () => (
               const layerClips = clips.filter((c) => c.layerId === layer.id);
               
               // Find active clip(s) for the layer based on transition rules
-              const activeClipInfos = getLayerActiveClips(layerClips, currentTime);
+              const activeClipInfos = getLayerActiveClips(layerClips, activeTime);
               if (activeClipInfos.length === 0) return null;
 
               return (
@@ -4683,7 +4823,7 @@ const renderEditor = () => (
                   className="absolute inset-0 pointer-events-none"
                 >
                   {activeClipInfos.map(({ clip: activeClipRaw, role, progress, transitionType }) => {
-                    const interpolatedProps = getInterpolatedProps(activeClipRaw, currentTime - activeClipRaw.leftSeconds, activeExpandedMenu);
+                    const interpolatedProps = getInterpolatedProps(activeClipRaw, activeTime - activeClipRaw.leftSeconds, activeExpandedMenu);
                     const activeClip = { ...activeClipRaw, ...interpolatedProps };
 
                     const getClipPath = (
@@ -4769,8 +4909,8 @@ const renderEditor = () => (
                     }
 
                     // Apply Entrance (In Move) and Exit (Out Move) animations from Motion Bar (M)
-                    const elapsed = currentTime - activeClipRaw.leftSeconds;
-                    const remaining = (activeClipRaw.leftSeconds + activeClipRaw.durationSeconds) - currentTime;
+                    const elapsed = activeTime - activeClipRaw.leftSeconds;
+                    const remaining = (activeClipRaw.leftSeconds + activeClipRaw.durationSeconds) - activeTime;
                     const motionDuration = Math.min(0.6, activeClipRaw.durationSeconds / 2);
 
                     let motionOutBlurAmount = 0;
@@ -4947,7 +5087,7 @@ const renderEditor = () => (
                       const strength = activeClip.motionInBlurStrength ?? 35;
                       const speed = activeClip.motionInBlurSpeed ?? 50;
                       // Calculate pixel-movement spikes
-                      const timeFactor = Math.sin(currentTime * 8) * Math.cos(currentTime * 3);
+                      const timeFactor = Math.sin(activeTime * 8) * Math.cos(activeTime * 3);
                       const motionIntensity = Math.max(0, timeFactor);
                       motionInBlurAmount = motionIntensity * (strength * 0.12) * (speed / 50);
                     }
@@ -5006,9 +5146,11 @@ const renderEditor = () => (
                               <TextRenderer
                                 activeClip={activeClip}
                                 activeClipRaw={activeClipRaw}
-                                currentTime={currentTime}
+                                currentTime={activeTime}
                                 selectedClipId={selectedClipId}
                                 transformStyle={transformStyle}
+                                isPlaying={isPlaying}
+                                playbackEngine={playbackEngineRef}
                               />
                             )}
 
@@ -5084,9 +5226,9 @@ const renderEditor = () => (
                                  {activeClip.isStabilized && activeClip.compareStabilization ? (() => {
                                    const scaleFactor = activeClip.stabilizationMode === "locked" ? 1.28 : activeClip.stabilizationMode === "active" ? 1.18 : 1.08;
                                    
-                                   const sX = isPlaying ? Math.sin(currentTime * 32) * 5 : 0;
-                                   const sY = isPlaying ? Math.cos(currentTime * 24) * 4 : 0;
-                                   const sR = isPlaying ? Math.sin(currentTime * 16) * 0.8 : 0;
+                                   const sX = isPlaying ? Math.sin(activeTime * 32) * 5 : 0;
+                                   const sY = isPlaying ? Math.cos(activeTime * 24) * 4 : 0;
+                                   const sR = isPlaying ? Math.sin(activeTime * 16) * 0.8 : 0;
 
                                    return (
                                      <div className="w-full h-full relative flex overflow-hidden rounded-lg bg-black">
@@ -5097,25 +5239,25 @@ const renderEditor = () => (
                                            style={{ 
                                              transform: `translate(${sX}px, ${sY}px) rotate(${sR}deg)`,
                                              clipPath: clipPathVal,
-                                             height: "100%"
-                                           }}
-                                         >
-                                           <VideoRenderer
-                                             id={`clip-media-orig-${activeClip.id}`}
-                                             style={{
-                                               transform: activeClip.maskType && activeClip.maskType !== "none"
-                                                 ? `translate(${activeClip.maskMediaTranslateX || 0}px, ${activeClip.maskMediaTranslateY || 0}px) scale(${activeClip.maskMediaScale || 1})`
-                                                 : "none",
-                                               transformOrigin: "center"
-                                             }}
-                                             clip={activeClip}
-                                             currentTime={currentTime}
-                                             isPlaying={isPlaying}
-                                             isMuted={layer.isMuted}
-                                             className="w-full h-full object-cover pointer-events-none"
-                                             onError={() => handleClipError(activeClip.id)}
-                                             volumeMultiplier={transVolumeMultiplier}
-                                           />
+                                                                    }}
+                                          >
+                                            <VideoRenderer
+                                              id={`clip-media-orig-${activeClip.id}`}
+                                              style={{
+                                                transform: activeClip.maskType && activeClip.maskType !== "none"
+                                                  ? `translate(${activeClip.maskMediaTranslateX || 0}px, ${activeClip.maskMediaTranslateY || 0}px) scale(${activeClip.maskMediaScale || 1})`
+                                                  : "none",
+                                                transformOrigin: "center"
+                                              }}
+                                              clip={activeClip}
+                                              currentTime={activeTime}
+                                              isPlaying={isPlaying}
+                                              playbackEngine={playbackEngineRef}
+                                              isMuted={layer.isMuted}
+                                              className="w-full h-full object-cover pointer-events-none"
+                                              onError={() => handleClipError(activeClip.id)}
+                                              volumeMultiplier={transVolumeMultiplier}
+                                            />
                                          </div>
                                          <div className="absolute top-2 left-2 bg-red-600/90 text-white font-extrabold text-[8px] uppercase tracking-widest px-2 py-0.5 rounded shadow-lg z-20">
                                            Original Shaky
@@ -5136,8 +5278,9 @@ const renderEditor = () => (
                                              <VideoRenderer
                                                id={`clip-media-stab-${activeClip.id}`}
                                                clip={activeClip}
-                                               currentTime={currentTime}
+                                               currentTime={activeTime}
                                                isPlaying={isPlaying}
+                                               playbackEngine={playbackEngineRef}
                                                isMuted={layer.isMuted}
                                                className="w-full h-full object-cover pointer-events-none"
                                                onError={() => handleClipError(activeClip.id)}
@@ -5176,8 +5319,9 @@ const renderEditor = () => (
                                      <VideoRenderer
                                        id={`clip-media-${activeClip.id}`}
                                        clip={activeClip}
-                                       currentTime={currentTime}
+                                       currentTime={activeTime}
                                        isPlaying={isPlaying}
+                                       playbackEngine={playbackEngineRef}
                                        isMuted={layer.isMuted}
                                        className="w-full h-full object-cover pointer-events-none"
                                        onError={() => handleClipError(activeClip.id)}
@@ -5215,8 +5359,9 @@ const renderEditor = () => (
                             {activeClip.type === "audio" && (
                               <AudioRenderer
                                 clip={activeClip}
-                                currentTime={currentTime}
+                                currentTime={activeTime}
                                 isPlaying={isPlaying}
+                                playbackEngine={playbackEngineRef}
                                 isMuted={layer.isMuted}
                                 onError={() => handleClipError(activeClip.id)}
                                 volumeMultiplier={transVolumeMultiplier}
@@ -5465,7 +5610,7 @@ const renderEditor = () => (
           }}
         >
           <div className="flex items-center gap-2 sm:gap-4 flex-1 pr-2">
-            <span className="text-zinc-300 font-mono text-[10px] sm:text-xs tracking-wider opacity-80 min-w-[40px] sm:min-w-[50px]">
+            <span id="playback-current-time" className="text-zinc-300 font-mono text-[10px] sm:text-xs tracking-wider opacity-80 min-w-[40px] sm:min-w-[50px]">
               {formatTime(currentTime)}
             </span>
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
@@ -5483,7 +5628,14 @@ const renderEditor = () => (
               </button>
               <button
                 className="w-7 h-7 sm:w-9 sm:h-9 bg-white text-black rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform m-0 pl-0 pr-[4px]"
-                onClick={() => setIsPlaying(!isPlaying)}
+                onClick={() => {
+                  if (!playbackEngineRef.current) return;
+                  if (isPlaying) {
+                    playbackEngineRef.current.pause();
+                  } else {
+                    playbackEngineRef.current.play();
+                  }
+                }}
               >
                 {isPlaying ? (
                   <Pause size={14} fill="currentColor" />
@@ -5725,7 +5877,22 @@ const renderEditor = () => (
           className="flex-1 w-full relative overflow-auto scrollbar-hide bg-[#0c0c0e]"
           style={{ touchAction: "pan-x pan-y" }}
           onScroll={(e) => {
-            setTimelineScrollLeft(e.currentTarget.scrollLeft);
+            const scrollLeft = e.currentTarget.scrollLeft;
+            setTimelineScrollLeft(scrollLeft);
+            
+            // Background WebP Thumbnail Visibility Tracking
+            const viewportWidth = e.currentTarget.clientWidth || window.innerWidth;
+            const pps = currentPixelsPerSecondRef.current || pixelsPerSecond;
+            
+            thumbnailProvider.updateViewport(
+              scrollLeft,
+              viewportWidth,
+              pps,
+              clipsRef.current
+                .filter(c => c.type === "video")
+                .map(c => ({ id: c.id, leftSeconds: c.leftSeconds, trimStartSeconds: c.trimStartSeconds || 0 }))
+            );
+
             if (!isPlayingRef.current && !isRecordingRef.current) {
               const currentTarget = e.currentTarget;
               if ((currentTarget as any)._rafScrollScheduled) return;
