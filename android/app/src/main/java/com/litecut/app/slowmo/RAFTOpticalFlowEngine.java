@@ -207,4 +207,33 @@ public class RAFTOpticalFlowEngine implements OpticalFlowEngine {
             }
         }
     }
+
+    private FloatBuffer matToFloatBuffer(Mat mat) {
+        int rows = mat.rows();
+        int cols = mat.cols();
+        int channels = mat.channels();
+        
+        float[] floatData = new float[rows * cols * channels];
+        byte[] byteData = new byte[rows * cols * channels];
+        mat.get(0, 0, byteData);
+        
+        int planeSize = rows * cols;
+        for (int r = 0; r < rows; r++) {
+            for (int c = 0; c < cols; c++) {
+                int matIdx = (r * cols + c) * channels;
+                int rVal = byteData[matIdx] & 0xFF;
+                int gVal = byteData[matIdx + 1] & 0xFF;
+                int bVal = byteData[matIdx + 2] & 0xFF;
+                
+                int destIdx = r * cols + c;
+                floatData[destIdx] = (float) rVal;
+                floatData[planeSize + destIdx] = (float) gVal;
+                floatData[2 * planeSize + destIdx] = (float) bVal;
+            }
+        }
+        
+        FloatBuffer buffer = FloatBuffer.wrap(floatData);
+        buffer.rewind();
+        return buffer;
+    }
 }

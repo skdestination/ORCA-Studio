@@ -39,6 +39,7 @@ public class VideoExportPlugin extends Plugin {
             VideoEncoder encoder = null;
             VideoDecoder decoder = null;
             MediaExtractor audioExtractor = null;
+            TextureRender renderer = null;
             try {
                 eglCore = new EglCore();
                 encoder = new VideoEncoder();
@@ -72,7 +73,7 @@ public class VideoExportPlugin extends Plugin {
                 for (int i = 0; i < trackCount; i++) {
                     MediaFormat format = decoder.getExtractor().getTrackFormat(i);
                     if (format.getString(MediaFormat.KEY_MIME).startsWith("video/")) {
-                        if (format.hasKey(MediaFormat.KEY_DURATION)) {
+                        if (format.containsKey(MediaFormat.KEY_DURATION)) {
                             videoDurationUs = format.getLong(MediaFormat.KEY_DURATION);
                         }
                         break;

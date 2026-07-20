@@ -584,13 +584,13 @@ public class SmoothSlowMotionPlugin extends Plugin {
                                         overallMaxFlowMagnitude = localMaxMag;
                                     }
                                     
-                                    long interpStartMs = System.currentTimeMillis();
+                                    long startInterpPhaseMs = System.currentTimeMillis();
                                     // Today's Work (W1D6): Frame Interpolation Pipeline
                                     // 1. Interpolation and Variable Slow Motion Encoding
                                     long ptsPrev = timestamps.get(frameCount - 2);
                                     long ptsDiff = pts - ptsPrev;
-                                    double step = speed; // speed is the interpolation factor (e.g. 0.5 for 2x, 0.25 for 4x)
-                                    double t = step;
+                                    double interpStep = speed; // speed is the interpolation factor (e.g. 0.5 for 2x, 0.25 for 4x)
+                                    double t = interpStep;
                                     
                                     try {
                                         long encodeStartMs = System.currentTimeMillis();
@@ -617,7 +617,7 @@ public class SmoothSlowMotionPlugin extends Plugin {
                                                 sumPsnr += localPsnr;
                                             }
                                             
-                                            t += step;
+                                            t += interpStep;
                                         }
 
                                         long outputPts = (long) (pts * (1.0 / speed));
