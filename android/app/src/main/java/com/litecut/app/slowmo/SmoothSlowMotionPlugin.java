@@ -634,6 +634,8 @@ public class SmoothSlowMotionPlugin extends Plugin {
                                     } catch (Exception encodeErr) {
                                         Log.e(TAG, "Failed encoding intermediate/current frames on frame " + frameCount + ": " + encodeErr.getMessage(), encodeErr);
                                     }
+                                } catch (Exception flowErr) {
+                                    Log.e(TAG, "Failed in optical flow / interpolation process: " + flowErr.getMessage(), flowErr);
                                 }
                             }
                         }

@@ -208,5 +208,3 @@ public class RAFTOpticalFlowEngine implements OpticalFlowEngine {
         }
     }
 }
-
-}
