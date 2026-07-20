@@ -69,12 +69,9 @@ class KeyframeCache private constructor() : ManagedCache {
 
     override fun trimMemory(bytesToFree: Long) {
         val entriesToRemove = (bytesToFree / 128L).toInt().coerceAtLeast(1)
-        var count = 0
-        val iterator = cache.entries.iterator()
-        while (iterator.hasNext() && count < entriesToRemove) {
-            iterator.next()
-            iterator.remove()
-            count++
+        val keysToRemove = cache.keys.take(entriesToRemove)
+        for (key in keysToRemove) {
+            cache.remove(key)
         }
     }
 

@@ -13,5 +13,6 @@ enum class AssetType {
     EFFECT_ASSET,
     PLUGIN_ASSET,
     AI_MODEL,
-    CUSTOM
+    CUSTOM,
+    UNKNOWN
 }

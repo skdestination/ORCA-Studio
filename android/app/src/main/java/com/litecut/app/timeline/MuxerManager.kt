@@ -109,8 +109,10 @@ class MuxerManager(private val outputPath: String) {
                     isStarted = false
                     Log.i("MuxerManager", "MediaMuxer stopped.")
                 }
+                Unit
             } catch (e: Exception) {
                 Log.e("MuxerManager", "Error stopping MediaMuxer", e)
+                Unit
             } finally {
                 try {
                     muxer?.release()

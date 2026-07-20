@@ -45,7 +45,7 @@ class AudioRenderCoordinator(
                 presentationTimeUs += durationUs
 
                 // Check if we reached the end of the timeline
-                val timelineDurationMs = timelineEngine.state.durationMs.get()
+                val timelineDurationMs = (timelineEngine.getTotalDurationSeconds() * 1000).toLong()
                 val isTimelineEOS = (presentationTimeUs / 1000) >= timelineDurationMs
 
                 val flags = if (isTimelineEOS) MediaCodec.BUFFER_FLAG_END_OF_STREAM else 0

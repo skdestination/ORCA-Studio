@@ -6,7 +6,7 @@ import android.media.MediaFormat
 import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Log
-import androidx.exifinterface.media.ExifInterface
+import android.media.ExifInterface
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileInputStream

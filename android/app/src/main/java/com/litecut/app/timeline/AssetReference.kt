@@ -7,13 +7,6 @@ import java.io.File
 import java.io.FileInputStream
 import java.security.MessageDigest
 
-enum class AssetType {
-    VIDEO,
-    AUDIO,
-    IMAGE,
-    UNKNOWN
-}
-
 enum class AssetLinkStatus {
     LINKED,
     OFFLINE
