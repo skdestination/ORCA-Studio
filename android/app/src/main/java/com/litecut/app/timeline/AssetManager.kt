@@ -132,7 +132,7 @@ class AssetManager private constructor(private val context: Context) {
             // 1. Calculate SHA-256 Checksum for Duplicate Detection
             progress(10)
             val checksum = calculateSHA256(file, token)
-            if (token.isCancelled) return@submit false
+            if (token.isCancelled()) return@submit false
 
             // Check if checksum already exists in database
             val existing = database.getAll().find { it.checksum == checksum && it.checksum.isNotEmpty() }
@@ -161,7 +161,7 @@ class AssetManager private constructor(private val context: Context) {
             // 3. Extract Metadata via Background Parser
             progress(40)
             extractor.extract(entry)
-            if (token.isCancelled) return@submit false
+            if (token.isCancelled()) return@submit false
 
             // 4. Custom Plugin Handling Hook
             if (entry.type == AssetType.CUSTOM || customTypeName != null) {
@@ -380,7 +380,7 @@ class AssetManager private constructor(private val context: Context) {
             FileInputStream(file).use { fis ->
                 var read: Int
                 while (fis.read(buffer).also { read = it } != -1) {
-                    if (token.isCancelled) return ""
+                    if (token.isCancelled()) return ""
                     digest.update(buffer, 0, read)
                 }
             }

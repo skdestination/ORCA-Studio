@@ -104,7 +104,7 @@ class FrameRenderer {
 object EGLExtensions {
     fun setPresentationTime(display: EGLDisplay, surface: EGLSurface, timeNs: Long) {
         try {
-            android.opengl.EGLExt15.eglPresentationTimeANDROID(display, surface, timeNs)
+            android.opengl.EGLExt.eglPresentationTimeANDROID(display, surface, timeNs)
         } catch (e: NoClassDefFoundError) {
             // Fallback for older API levels
         }

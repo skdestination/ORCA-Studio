@@ -4,12 +4,12 @@ import java.util.concurrent.CopyOnWriteArrayList
 
 class CancellationToken {
     @Volatile
-    private var isCancelled = false
+    private var cancelled = false
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
 
     fun cancel() {
-        if (!isCancelled) {
-            isCancelled = true
+        if (!cancelled) {
+            cancelled = true
             for (listener in listeners) {
                 try {
                     listener()
@@ -20,10 +20,10 @@ class CancellationToken {
         }
     }
 
-    fun isCancelled(): Boolean = isCancelled
+    fun isCancelled(): Boolean = cancelled
 
     fun register(onCancel: () -> Unit) {
-        if (isCancelled) {
+        if (cancelled) {
             onCancel()
         } else {
             listeners.add(onCancel)

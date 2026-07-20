@@ -44,7 +44,7 @@ class AssetScanner(private val context: Context) {
     }
 
     private fun scanDirRecursive(file: File, results: MutableList<File>, token: CancellationToken) {
-        if (token.isCancelled) return
+        if (token.isCancelled()) return
 
         if (file.isDirectory) {
             val list = file.listFiles() ?: return

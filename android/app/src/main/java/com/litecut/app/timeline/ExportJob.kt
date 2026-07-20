@@ -48,7 +48,7 @@ class ExportJob(
         val success = pipeline.execute(token)
         
         if (!success) {
-            if (token.isCancelled) {
+            if (token.isCancelled()) {
                 session.state = ExportState.CANCELLED
             } else {
                 session.state = ExportState.FAILED

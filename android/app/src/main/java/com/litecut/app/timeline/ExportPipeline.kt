@@ -36,7 +36,7 @@ class ExportPipeline(
         val audioRenderCoordinator = AudioRenderCoordinator(timelineEngine, encoderManager, muxerManager)
 
         try {
-            val durationMs = timelineEngine.state.durationMs.get()
+            val durationMs = (timelineEngine.getTotalDurationSeconds() * 1000).toLong()
             if (durationMs <= 0) {
                 progressTracker.notifyError("Timeline duration is 0. Cannot export an empty timeline.")
                 return false
@@ -59,7 +59,7 @@ class ExportPipeline(
             // Main rendering loop
             while (!videoFinished || !audioFinished) {
                 // Respect cancel flags and cooperative token cancellations
-                if (isCancelled || (cancellationToken != null && cancellationToken.isCancelled)) {
+                if (isCancelled || (cancellationToken != null && cancellationToken.isCancelled())) {
                     Log.w("ExportPipeline", "Export render loop cancelled by user.")
                     progressTracker.notifyError("Export Cancelled")
                     break
@@ -87,7 +87,7 @@ class ExportPipeline(
                 )
             }
 
-            if (isCancelled || (cancellationToken != null && cancellationToken.isCancelled)) {
+            if (isCancelled || (cancellationToken != null && cancellationToken.isCancelled())) {
                 // Delete incomplete files
                 File(outputPath).delete()
                 return false

@@ -122,6 +122,7 @@ class MuxerManager(private val outputPath: String) {
                 audioTrackIndex = -1
                 Log.i("MuxerManager", "MediaMuxer resources fully released.")
             }
+            Unit
         }
     }
 }

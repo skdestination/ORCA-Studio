@@ -94,6 +94,10 @@ class ResourceManager private constructor(context: Context) {
         updateTotalMemoryUsageStats()
     }
 
+    fun trimMemory(level: Int) {
+        handleSystemMemoryTrim(level)
+    }
+
     /**
      * Trims all registered caches based on system memory pressure events.
      */

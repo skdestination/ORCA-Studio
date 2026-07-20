@@ -2,6 +2,7 @@ package com.litecut.app.timeline.audio
 
 import com.litecut.app.timeline.AnimationEvaluator
 import com.litecut.app.timeline.Clip
+import com.litecut.app.timeline.mute
 import kotlin.math.max
 import kotlin.math.min
 
