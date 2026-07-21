@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.litecut.app.timeline.TimelineScreen
@@ -15,6 +16,9 @@ import com.litecut.app.timeline.TimelineScreen
  */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Initialize the splash screen transition before super.onCreate()
+        installSplashScreen()
+
         super.onCreate(savedInstanceState)
 
         // Enable edge-to-edge screen rendering to make the app full screen and draw behind system bars

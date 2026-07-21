@@ -40,8 +40,15 @@ fun TimelineScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
+    MaterialTheme(
+        colorScheme = darkColorScheme(
+            background = Color(TimelineTheme.backgroundColor),
+            surface = Color(TimelineTheme.headerBackgroundColor),
+            primary = Color(0xFFFF2D55)
+        )
+    ) {
+        Scaffold(
+            topBar = {
             TopAppBar(
                 title = {
                     Text(
@@ -325,4 +332,5 @@ fun TimelineScreen(
             }
         }
     }
+}
 }

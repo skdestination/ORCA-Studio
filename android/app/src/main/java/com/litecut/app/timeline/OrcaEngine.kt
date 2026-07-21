@@ -206,6 +206,7 @@ class OrcaEngine private constructor(private val context: Context) : ManagedCach
     val projectEngine = ProjectEngine.getInstance(context)
     val resourceManager = ResourceManager.getInstance(context)
     val taskScheduler = TaskScheduler.getInstance(context)
+    val effectCache = EffectCache.getInstance(context)
 
     // Playback Engine reference
     val playbackEngine = PlaybackEngine()
