@@ -21,6 +21,9 @@ class MainActivity : ComponentActivity() {
 
         super.onCreate(savedInstanceState)
 
+        // Initialize the central OrcaEngine and all its sub-engines with the application context on startup
+        com.litecut.app.timeline.OrcaEngine.getInstance(applicationContext)
+
         // Enable edge-to-edge screen rendering to make the app full screen and draw behind system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
