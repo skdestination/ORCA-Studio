@@ -16,12 +16,12 @@ class TaskScheduler private constructor(context: Context) {
         @Volatile
         private var instance: TaskScheduler? = null
 
-        fun getInstance(context: Context? = null): TaskScheduler {
+        fun getInstance(context: Context? = null): TaskScheduler? {
             return instance ?: synchronized(this) {
                 instance ?: if (context != null) {
                     TaskScheduler(context.applicationContext).also { instance = it }
                 } else {
-                    throw IllegalStateException("TaskScheduler is not initialized. Please pass a valid Context first.")
+                    null
                 }
             }
         }

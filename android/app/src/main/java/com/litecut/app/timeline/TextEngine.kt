@@ -81,7 +81,7 @@ class TextEngine private constructor(private val timelineEngine: TimelineEngine)
             if (doc.text.isEmpty()) continue
 
             Log.d("TextEngine", "Scheduling text layout pre-calculation for text: \"${doc.text}\"")
-            TaskScheduler.getInstance(null).submit(
+            TaskScheduler.getInstance(null)?.submit(
                 name = "RecalculateTextLayout-${layer.id}",
                 priority = TaskPriority.HIGH
             ) { token, progress ->

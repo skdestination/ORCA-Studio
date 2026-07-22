@@ -190,6 +190,12 @@ class OrcaEngine private constructor(private val context: Context) : ManagedCach
     override val categoryName: String = "orca_engine_coordinator"
 
     // Subsystem Engine Registrations
+    val resourceManager = ResourceManager.getInstance(context)
+    val taskScheduler = TaskScheduler.getInstance(context)
+    val effectCache = EffectCache.getInstance(context)
+    val assetManager = AssetManager.getInstance(context)
+    val projectEngine = ProjectEngine.getInstance(context)
+
     val timelineEngine = TimelineEngine.getInstance()
     val previewEngine = PreviewEngine.getInstance(context)
     val compositionEngine = CompositionEngine.getInstance()
@@ -202,11 +208,6 @@ class OrcaEngine private constructor(private val context: Context) : ManagedCach
     val audioMixerEngine = AudioMixerEngine.getInstance(context)
     val renderPipeline = RenderPipeline.getInstance()
     val exportEngine = ExportEngine.getInstance(timelineEngine, context)
-    val assetManager = AssetManager.getInstance(context)
-    val projectEngine = ProjectEngine.getInstance(context)
-    val resourceManager = ResourceManager.getInstance(context)
-    val taskScheduler = TaskScheduler.getInstance(context)
-    val effectCache = EffectCache.getInstance(context)
 
     // Playback Engine reference
     val playbackEngine = PlaybackEngine()
