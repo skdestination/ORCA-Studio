@@ -193,6 +193,7 @@ class OrcaEngine private constructor(val context: Context) : ManagedCache {
     val resourceManager = ResourceManager.getInstance(context)
     val taskScheduler = TaskScheduler.getInstance(context)
     val effectCache = EffectCache.getInstance(context)
+    val keyframeCache = KeyframeCache.getInstance(context)
     val assetManager = AssetManager.getInstance(context)
     val projectEngine = ProjectEngine.getInstance(context)
 

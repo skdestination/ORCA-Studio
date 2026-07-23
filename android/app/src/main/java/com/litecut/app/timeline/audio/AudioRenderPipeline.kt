@@ -183,7 +183,7 @@ class AudioRenderPipeline(
     }
 
     private fun warmAudioCacheAsync(clip: Clip, segmentIndex: Int) {
-        val scheduler = TaskScheduler.getInstance(null) ?: return
+        val scheduler = TaskScheduler.getInstance()
         val taskName = "AudioCacheWarming-${clip.id}-$segmentIndex"
         
         scheduler.submit(taskName, TaskPriority.NORMAL) { token, _ ->

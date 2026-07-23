@@ -12,7 +12,7 @@ class AdjustVolumeCommand(
     private val newVolume: Float
 ) : Command {
     override fun execute(engine: TimelineEngine) {
-        val channel = AudioMixerEngine.getInstance(null).getTrackForClip(clipId)?.getChannel(clipId)
+        val channel = AudioMixerEngine.getInstance().getTrackForClip(clipId)?.getChannel(clipId)
         channel?.volume = newVolume
         
         // Also update standard fallback properties on the native clip if present
@@ -22,7 +22,7 @@ class AdjustVolumeCommand(
     }
 
     override fun undo(engine: TimelineEngine) {
-        val channel = AudioMixerEngine.getInstance(null).getTrackForClip(clipId)?.getChannel(clipId)
+        val channel = AudioMixerEngine.getInstance().getTrackForClip(clipId)?.getChannel(clipId)
         channel?.volume = oldVolume
         
         engine.getClip(clipId)?.let { clip ->
@@ -40,7 +40,7 @@ class AdjustPanCommand(
     private val newPan: Float
 ) : Command {
     override fun execute(engine: TimelineEngine) {
-        val channel = AudioMixerEngine.getInstance(null).getTrackForClip(clipId)?.getChannel(clipId)
+        val channel = AudioMixerEngine.getInstance().getTrackForClip(clipId)?.getChannel(clipId)
         channel?.pan = newPan
         
         engine.getClip(clipId)?.let { clip ->
@@ -49,7 +49,7 @@ class AdjustPanCommand(
     }
 
     override fun undo(engine: TimelineEngine) {
-        val channel = AudioMixerEngine.getInstance(null).getTrackForClip(clipId)?.getChannel(clipId)
+        val channel = AudioMixerEngine.getInstance().getTrackForClip(clipId)?.getChannel(clipId)
         channel?.pan = oldPan
         
         engine.getClip(clipId)?.let { clip ->
@@ -67,7 +67,7 @@ class ChangeBusRoutingCommand(
     private val newBusId: String
 ) : Command {
     override fun execute(engine: TimelineEngine) {
-        val channel = AudioMixerEngine.getInstance(null).getTrackForClip(clipId)?.getChannel(clipId)
+        val channel = AudioMixerEngine.getInstance().getTrackForClip(clipId)?.getChannel(clipId)
         channel?.targetBusId = newBusId
         
         engine.getClip(clipId)?.let { clip ->
@@ -76,7 +76,7 @@ class ChangeBusRoutingCommand(
     }
 
     override fun undo(engine: TimelineEngine) {
-        val channel = AudioMixerEngine.getInstance(null).getTrackForClip(clipId)?.getChannel(clipId)
+        val channel = AudioMixerEngine.getInstance().getTrackForClip(clipId)?.getChannel(clipId)
         channel?.targetBusId = oldBusId
         
         engine.getClip(clipId)?.let { clip ->

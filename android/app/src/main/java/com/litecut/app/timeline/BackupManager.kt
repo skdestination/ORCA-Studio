@@ -24,8 +24,7 @@ class BackupManager(private val context: Context) {
         }
 
         try {
-            val ctx = context ?: ApplicationContextProvider.context ?: return null
-            val backupDir = File(ctx.filesDir, "project_backups/${projectFile.nameWithoutExtension}")
+            val backupDir = File(context.filesDir, "project_backups/${projectFile.nameWithoutExtension}")
             backupDir.mkdirs()
 
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())

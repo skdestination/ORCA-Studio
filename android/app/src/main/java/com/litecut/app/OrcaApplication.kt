@@ -2,13 +2,11 @@ package com.litecut.app
 
 import android.app.Application
 import android.util.Log
-import com.litecut.app.timeline.ApplicationContextProvider
 import com.litecut.app.timeline.OrcaEngine
 
 class OrcaApplication : Application() {
     override fun onCreate() {
         super.onCreate()
-        ApplicationContextProvider.context = applicationContext
         Log.i("OrcaApplication", "Initializing central OrcaEngine singleton on Application startup...")
         try {
             OrcaEngine.initialize(applicationContext)

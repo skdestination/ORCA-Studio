@@ -14,20 +14,17 @@ class KeyframeCache private constructor() : ManagedCache {
         @Volatile
         private var instance: KeyframeCache? = null
 
-        fun getInstance(context: android.content.Context? = null): KeyframeCache {
+        fun getInstance(context: android.content.Context): KeyframeCache {
             return instance ?: synchronized(this) {
-                instance ?: KeyframeCache().also { 
-                    instance = it 
-                    if (context != null) {
-                        try {
-                            ResourceManager.getInstance(context).registerCache(it.categoryName, it)
-                        } catch (e: Exception) {
-                            // Safe fallback in standalone test runs without full context active
-                            e.printStackTrace()
-                        }
-                    }
+                instance ?: KeyframeCache().also {
+                    instance = it
+                    ResourceManager.getInstance(context.applicationContext).registerCache(it.categoryName, it)
                 }
             }
+        }
+
+        fun getInstance(): KeyframeCache {
+            return instance ?: throw IllegalStateException("KeyframeCache has not been initialized with Context.")
         }
     }
 

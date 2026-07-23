@@ -90,7 +90,7 @@ class EffectsEngine private constructor(private val timelineEngine: TimelineEngi
                 Log.d("EffectsEngine", "Scheduling heavy background preparation for effect: ${effect.name} (${effect.id})")
                 
                 // Submit high-priority task for preparation
-                TaskScheduler.getInstance(null).submit(
+                TaskScheduler.getInstance().submit(
                     name = "PrepareEffect-${effect.id}",
                     priority = TaskPriority.HIGH
                 ) { token, progress ->
@@ -100,7 +100,7 @@ class EffectsEngine private constructor(private val timelineEngine: TimelineEngi
                         
                         if (effect.type == EffectType.AI_EFFECT) {
                             // Compute noise/style transfer weights and cache them
-                            val cache = EffectCache.getInstance(null)
+                            val cache = EffectCache.getInstance()
                             cache.putWeights("ai_weights_${effect.id}", floatArrayOf(0.12f, 0.45f, 0.78f, 0.99f))
                             cache.putMetadata("ai_meta_${effect.id}", "NeuralStylePresetV2Ready")
                         }

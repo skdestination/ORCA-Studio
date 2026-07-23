@@ -82,7 +82,7 @@ class MaskEngine private constructor(private val timelineEngine: TimelineEngine)
                 Log.d("MaskEngine", "Scheduling heavy background computer vision tracking for mask: ${mask.name} (${mask.id})")
                 
                 // Submit high-priority task for tracking & segmentation preparation
-                TaskScheduler.getInstance(null).submit(
+                TaskScheduler.getInstance().submit(
                     name = "PrepareMask-${mask.id}",
                     priority = TaskPriority.HIGH
                 ) { token, progress ->
@@ -91,13 +91,13 @@ class MaskEngine private constructor(private val timelineEngine: TimelineEngine)
                         Thread.sleep(200) // Non-blocking background computation
                         
                         if (mask.type == MaskType.FACE) {
-                            val cache = EffectCache.getInstance(null)
+                            val cache = EffectCache.getInstance()
                             cache.putMetadata("face_landmarks_${mask.id}", "LandmarkModelV3Ready:58Points")
                         } else if (mask.type == MaskType.DEPTH) {
-                            val cache = EffectCache.getInstance(null)
+                            val cache = EffectCache.getInstance()
                             cache.putMetadata("depth_segmentation_${mask.id}", "DepthEstimationPreCalcReady")
                         } else if (mask.type == MaskType.AI_ROTO) {
-                            val cache = EffectCache.getInstance(null)
+                            val cache = EffectCache.getInstance()
                             cache.putMetadata("roto_brush_${mask.id}", "RotoBrushMatteMaskReady")
                         }
                         
