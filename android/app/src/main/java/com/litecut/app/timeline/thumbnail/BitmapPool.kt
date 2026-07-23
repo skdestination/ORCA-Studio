@@ -9,7 +9,7 @@ import java.util.Collections
 import java.util.LinkedList
 
 class BitmapPool(
-    context: Context,
+    val context: Context,
     private val maxPoolSize: Int = 30
 ) : ManagedCache {
 

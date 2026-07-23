@@ -102,7 +102,7 @@ class PreviewSession(
 
             if (recomposeRequired) {
                 // Execute deterministic frame pipeline via OrcaEngine
-                val compOutput = OrcaEngine.getInstance(context).executeFrameDeterministic(currentTime, isExport = false)
+                val compOutput = OrcaEngine.getInstance().executeFrameDeterministic(currentTime, isExport = false)
                 
                 // Transfer values into our frame's CompositionOutput
                 frame.compositionOutput.timeSeconds = compOutput.timeSeconds

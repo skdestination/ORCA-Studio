@@ -6,10 +6,12 @@ import com.litecut.app.timeline.audio.AudioMixResult
 import com.litecut.app.timeline.audio.AudioMixerEngine
 import com.litecut.app.timeline.audio.AudioTrack
 import com.litecut.app.timeline.audio.BusType
+import com.litecut.app.timeline.audio.WaveformEngine
 import com.litecut.app.timeline.resources.ManagedCache
 import com.litecut.app.timeline.resources.ResourceManager
 import com.litecut.app.timeline.tasks.TaskPriority
 import com.litecut.app.timeline.tasks.TaskScheduler
+import com.litecut.app.timeline.thumbnail.ThumbnailEngine
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ConcurrentHashMap
 
