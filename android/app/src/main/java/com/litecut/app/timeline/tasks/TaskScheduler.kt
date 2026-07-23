@@ -4,25 +4,28 @@ import android.content.Context
 import android.util.Log
 import java.util.UUID
 
-class TaskScheduler private constructor(context: Context) {
+class TaskScheduler private constructor(context: Context?) {
 
     private val queue = TaskQueue()
     private val workerPool = WorkerPool()
     val monitor = TaskMonitor()
     
-    private val dispatcher = TaskDispatcher(context, queue, workerPool)
+    private var contextRef: Context? = context?.applicationContext
+    private val dispatcher = TaskDispatcher(contextRef, queue, workerPool)
 
     companion object {
         @Volatile
         private var instance: TaskScheduler? = null
 
         fun getInstance(context: Context? = null): TaskScheduler {
-            return instance ?: synchronized(this) {
-                instance ?: if (context != null) {
-                    TaskScheduler(context.applicationContext).also { instance = it }
-                } else {
-                    throw IllegalStateException("TaskScheduler is not initialized. Please pass a valid Context first.")
+            val ctx = context?.applicationContext ?: com.litecut.app.timeline.ApplicationContextProvider.context
+            return instance?.apply {
+                if (ctx != null && this.contextRef == null) {
+                    this.contextRef = ctx
+                    this.dispatcher.updateContext(ctx)
                 }
+            } ?: synchronized(this) {
+                instance ?: TaskScheduler(ctx).also { instance = it }
             }
         }
     }

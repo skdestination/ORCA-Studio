@@ -6,7 +6,7 @@ import com.litecut.app.timeline.resources.ManagedCache
 import com.litecut.app.timeline.resources.ResourceManager
 import java.util.concurrent.ConcurrentHashMap
 
-class EffectCache private constructor(private val context: Context) : ManagedCache {
+class EffectCache private constructor(private var context: Context?) : ManagedCache {
     override val categoryName: String = "effect_cache"
 
     // Simulates cached heavy effect state (e.g. pre-calculated blur convolution weights,
@@ -19,15 +19,26 @@ class EffectCache private constructor(private val context: Context) : ManagedCac
         private var instance: EffectCache? = null
 
         fun getInstance(context: Context? = null): EffectCache {
-            return instance ?: synchronized(this) {
-                instance ?: if (context != null) {
-                    EffectCache(context.applicationContext).also {
-                        instance = it
-                        // Register with central ResourceManager
-                        ResourceManager.getInstance(it.context).registerCache(it.categoryName, it)
+            val ctx = context?.applicationContext ?: ApplicationContextProvider.context
+            return instance?.apply {
+                if (ctx != null && this.context == null) {
+                    this.context = ctx
+                    try {
+                        ResourceManager.getInstance(ctx).registerCache(categoryName, this)
+                    } catch (e: Exception) {
+                        Log.w("EffectCache", "Failed to register cache with ResourceManager", e)
                     }
-                } else {
-                    throw IllegalStateException("EffectCache is not initialized. Please pass a valid Context first.")
+                }
+            } ?: synchronized(this) {
+                instance ?: EffectCache(ctx).also {
+                    instance = it
+                    if (ctx != null) {
+                        try {
+                            ResourceManager.getInstance(ctx).registerCache(it.categoryName, it)
+                        } catch (e: Exception) {
+                            Log.w("EffectCache", "Failed to register cache with ResourceManager", e)
+                        }
+                    }
                 }
             }
         }

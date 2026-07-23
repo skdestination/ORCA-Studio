@@ -7,6 +7,7 @@ import com.litecut.app.timeline.resources.CacheEntry
 import com.litecut.app.timeline.resources.CachePolicy
 import com.litecut.app.timeline.resources.ManagedCache
 import com.litecut.app.timeline.resources.ResourceManager
+import com.litecut.app.timeline.ApplicationContextProvider
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -14,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap
  * Integrates with central ResourceManager for LRU memory budgeting,
  * while supporting pinning for currently visible viewport clips to protect them from eviction.
  */
-class WaveformCache(private val context: Context) : ManagedCache {
+class WaveformCache(context: Context?) : ManagedCache {
 
     override val categoryName: String = "waveform"
 
@@ -22,8 +23,9 @@ class WaveformCache(private val context: Context) : ManagedCache {
     private val pinnedClipIds = ConcurrentHashMap.newKeySet<String>()
 
     init {
+        val ctx = context?.applicationContext ?: ApplicationContextProvider.context
         // Register with the central ResourceManager
-        ResourceManager.getInstance(context).registerCache(categoryName, this)
+        ResourceManager.getInstance(ctx).registerCache(categoryName, this)
     }
 
     override fun getCurrentSizeBytes(): Long {

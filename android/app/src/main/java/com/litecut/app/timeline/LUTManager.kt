@@ -10,7 +10,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.util.concurrent.ConcurrentHashMap
 
-class LUTManager private constructor(private val context: Context) : ManagedCache {
+class LUTManager private constructor(private var context: Context?) : ManagedCache {
     override val categoryName: String = "lut_cache"
 
     private val cachedLuts = ConcurrentHashMap<String, LUT>()
@@ -20,12 +20,27 @@ class LUTManager private constructor(private val context: Context) : ManagedCach
         @Volatile
         private var instance: LUTManager? = null
 
-        fun getInstance(context: Context): LUTManager {
-            return instance ?: synchronized(this) {
-                instance ?: LUTManager(context.applicationContext).also { 
+        fun getInstance(context: Context? = null): LUTManager {
+            val ctx = context?.applicationContext ?: ApplicationContextProvider.context
+            return instance?.apply {
+                if (ctx != null && this.context == null) {
+                    this.context = ctx
+                    try {
+                        ResourceManager.getInstance(ctx).registerCache(categoryName, this)
+                    } catch (e: Exception) {
+                        Log.w("LUTManager", "Failed to register cache with ResourceManager", e)
+                    }
+                }
+            } ?: synchronized(this) {
+                instance ?: LUTManager(ctx).also { 
                     instance = it
-                    // Register with ResourceManager
-                    ResourceManager.getInstance(it.context).registerCache(it.categoryName, it)
+                    if (ctx != null) {
+                        try {
+                            ResourceManager.getInstance(ctx).registerCache(it.categoryName, it)
+                        } catch (e: Exception) {
+                            Log.w("LUTManager", "Failed to register cache with ResourceManager", e)
+                        }
+                    }
                 }
             }
         }

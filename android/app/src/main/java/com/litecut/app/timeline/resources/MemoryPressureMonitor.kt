@@ -6,16 +6,22 @@ import android.content.res.Configuration
 import android.util.Log
 
 class MemoryPressureMonitor(
-    private val context: Context,
+    private var context: Context?,
     private val onTrimCallback: (Int) -> Unit
 ) : ComponentCallbacks2 {
 
     private var registered = false
 
+    fun updateContext(newContext: Context) {
+        this.context = newContext.applicationContext
+        start()
+    }
+
     fun start() {
+        val ctx = context ?: return
         if (!registered) {
             try {
-                context.registerComponentCallbacks(this)
+                ctx.registerComponentCallbacks(this)
                 registered = true
                 Log.d("MemoryPressureMonitor", "Successfully registered ComponentCallbacks2")
             } catch (e: Exception) {
@@ -27,7 +33,7 @@ class MemoryPressureMonitor(
     fun stop() {
         if (registered) {
             try {
-                context.unregisterComponentCallbacks(this)
+                context?.unregisterComponentCallbacks(this)
                 registered = false
                 Log.d("MemoryPressureMonitor", "Successfully unregistered ComponentCallbacks2")
             } catch (e: Exception) {

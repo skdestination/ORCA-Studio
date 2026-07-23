@@ -8,10 +8,11 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import com.litecut.app.timeline.ApplicationContextProvider
 import java.io.File
 import kotlin.math.max
 
-class ThumbnailExtractor(private val context: Context, private val bitmapPool: BitmapPool) {
+class ThumbnailExtractor(private val context: Context?, private val bitmapPool: BitmapPool) {
 
     /**
      * Extracts a scaled thumbnail from a video or image clip.
@@ -26,10 +27,15 @@ class ThumbnailExtractor(private val context: Context, private val bitmapPool: B
 
     private fun extractVideoFrame(src: String, timeOffsetSeconds: Double, targetWidth: Int, targetHeight: Int): Bitmap? {
         val retriever = MediaMetadataRetriever()
+        val ctx = context ?: ApplicationContextProvider.context
         try {
             val uri = Uri.parse(src)
             if (src.startsWith("content://") || src.startsWith("android.resource://") || uri.scheme != null) {
-                retriever.setDataSource(context, uri)
+                if (ctx != null) {
+                    retriever.setDataSource(ctx, uri)
+                } else {
+                    retriever.setDataSource(src)
+                }
             } else {
                 retriever.setDataSource(src)
             }

@@ -9,7 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 
 class SeekController(
-    private val context: Context,
+    private val context: Context?,
     private val metrics: PlaybackMetrics,
     private val onSeekFrameReady: (Double) -> Unit
 ) {

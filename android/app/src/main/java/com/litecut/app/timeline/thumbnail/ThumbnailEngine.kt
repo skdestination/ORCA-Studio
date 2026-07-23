@@ -6,9 +6,10 @@ import android.util.Log
 import com.litecut.app.timeline.Clip
 import com.litecut.app.timeline.TimelineEngine
 import com.litecut.app.timeline.Viewport
+import com.litecut.app.timeline.ApplicationContextProvider
 import kotlin.math.abs
 
-class ThumbnailEngine private constructor(context: Context) {
+class ThumbnailEngine private constructor(context: Context?) {
 
     val bitmapPool = BitmapPool(context)
     val cache = ThumbnailCache(context, bitmapPool)
@@ -28,9 +29,10 @@ class ThumbnailEngine private constructor(context: Context) {
         @Volatile
         private var instance: ThumbnailEngine? = null
 
-        fun getInstance(context: Context): ThumbnailEngine {
+        fun getInstance(context: Context? = null): ThumbnailEngine {
+            val ctx = context?.applicationContext ?: ApplicationContextProvider.context
             return instance ?: synchronized(this) {
-                instance ?: ThumbnailEngine(context.applicationContext).also { instance = it }
+                instance ?: ThumbnailEngine(ctx).also { instance = it }
             }
         }
     }

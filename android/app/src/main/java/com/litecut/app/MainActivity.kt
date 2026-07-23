@@ -19,10 +19,10 @@ class MainActivity : ComponentActivity() {
         // Initialize the splash screen transition before super.onCreate()
         installSplashScreen()
 
-        super.onCreate(savedInstanceState)
-
         // Initialize the central OrcaEngine and all its sub-engines with the application context on startup
         com.litecut.app.timeline.OrcaEngine.getInstance(applicationContext)
+
+        super.onCreate(savedInstanceState)
 
         // Enable edge-to-edge screen rendering to make the app full screen and draw behind system bars
         WindowCompat.setDecorFitsSystemWindows(window, false)

@@ -13,9 +13,9 @@ import java.util.concurrent.CopyOnWriteArrayList
  * real-time background rendering, bus structures, and diagnostics.
  * Directly integrates with TimelineEngine, PlaybackClock, ResourceManager, and ExportEngine.
  */
-class AudioMixerEngine private constructor(context: Context) {
+class AudioMixerEngine private constructor(context: Context?) {
 
-    private val appContext = context.applicationContext
+    private var appContext = context?.applicationContext
     private val timelineEngine = TimelineEngine.getInstance()
     private val resourceManager = ResourceManager.getInstance(appContext)
 
@@ -37,15 +37,16 @@ class AudioMixerEngine private constructor(context: Context) {
 
         /**
          * Returns the thread-safe singleton instance of the AudioMixerEngine.
-         * Safe fallback for standalone contexts (like unit tests) if null context is passed after init.
+         * Safe fallback for standalone contexts if null context is passed.
          */
-        fun getInstance(context: Context?): AudioMixerEngine {
-            return instance ?: synchronized(this) {
-                instance ?: if (context != null) {
-                    AudioMixerEngine(context.applicationContext).also { instance = it }
-                } else {
-                    throw IllegalStateException("AudioMixerEngine is not initialized. Pass a valid Context first.")
+        fun getInstance(context: Context? = null): AudioMixerEngine {
+            val ctx = context?.applicationContext ?: com.litecut.app.timeline.ApplicationContextProvider.context
+            return instance?.apply {
+                if (ctx != null && this.appContext == null) {
+                    this.appContext = ctx
                 }
+            } ?: synchronized(this) {
+                instance ?: AudioMixerEngine(ctx).also { instance = it }
             }
         }
     }
@@ -105,7 +106,7 @@ class AudioMixerEngine private constructor(context: Context) {
      * Thread-safe; suitable for background render loops.
      */
     fun mixNextChunk(currentTimeSeconds: Double): AudioMixResult {
-        val session = getActiveSession() ?: throw IllegalStateException("No active audio session.")
+        val session = getActiveSession() ?: startSession()
         
         // Mix all active channels routed into parent buses
         return pipeline.render(

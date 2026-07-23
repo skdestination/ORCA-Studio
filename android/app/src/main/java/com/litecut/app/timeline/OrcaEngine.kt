@@ -185,7 +185,7 @@ interface OrcaExtension {
  * Seamlessly manages registration, initialization, deterministic rendering runs, events,
  * and smart invalidations of all modular engines with strict zero-allocation performance.
  */
-class OrcaEngine private constructor(private val context: Context) : ManagedCache {
+class OrcaEngine private constructor(private var context: Context?) : ManagedCache {
 
     override val categoryName: String = "orca_engine_coordinator"
 
@@ -238,14 +238,15 @@ class OrcaEngine private constructor(private val context: Context) : ManagedCach
         @Volatile
         private var instance: OrcaEngine? = null
 
-        fun getInstance(context: Context): OrcaEngine {
-            return instance ?: synchronized(this) {
-                instance ?: OrcaEngine(context.applicationContext).also { instance = it }
+        fun getInstance(context: Context? = null): OrcaEngine {
+            val ctx = context?.applicationContext ?: ApplicationContextProvider.context
+            return instance?.apply {
+                if (ctx != null && this.context == null) {
+                    this.context = ctx
+                }
+            } ?: synchronized(this) {
+                instance ?: OrcaEngine(ctx).also { instance = it }
             }
-        }
-
-        fun getInstance(): OrcaEngine {
-            return instance ?: throw IllegalStateException("OrcaEngine has not been initialized with Context yet.")
         }
     }
 

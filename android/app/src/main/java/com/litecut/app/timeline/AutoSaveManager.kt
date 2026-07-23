@@ -8,9 +8,12 @@ import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 class AutoSaveManager(
-    private val context: Context,
+    private var context: Context?,
     private val projectEngineProvider: () -> ProjectEngine
 ) {
+    fun updateContext(newContext: Context) {
+        this.context = newContext.applicationContext
+    }
     private val taskScheduler = TaskScheduler.getInstance(context)
     private val isDirty = AtomicBoolean(false)
     private var isEnabled = true

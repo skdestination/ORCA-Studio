@@ -8,12 +8,16 @@ import com.litecut.app.timeline.resources.ResourceManager
 import java.util.concurrent.ConcurrentHashMap
 
 class TaskDispatcher(
-    private val context: Context,
+    private var context: Context?,
     private val queue: TaskQueue,
     private val workerPool: WorkerPool
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private val activeHandles = ConcurrentHashMap<String, TaskHandle<*>>()
+
+    fun updateContext(newContext: Context) {
+        this.context = newContext.applicationContext
+    }
 
     fun getTask(taskId: String): Task<*>? {
         return activeHandles[taskId]?.task

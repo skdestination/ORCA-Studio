@@ -8,6 +8,7 @@ import com.litecut.app.timeline.Viewport
 import com.litecut.app.timeline.cache.WaveformCache
 import com.litecut.app.timeline.tasks.TaskPriority
 import com.litecut.app.timeline.tasks.TaskScheduler
+import com.litecut.app.timeline.ApplicationContextProvider
 import java.util.concurrent.ConcurrentHashMap
 
 enum class AudioTrackType {
@@ -19,7 +20,7 @@ enum class AudioTrackType {
  * Manages task scheduling, caching, viewport awareness, memory-budget pinning,
  * and predictive prefetching.
  */
-class WaveformEngine private constructor(private val context: Context) {
+class WaveformEngine private constructor(private var context: Context?) {
 
     val cache = WaveformCache(context)
     private val pendingTaskIds = ConcurrentHashMap.newKeySet<String>()
@@ -30,9 +31,14 @@ class WaveformEngine private constructor(private val context: Context) {
         @Volatile
         private var instance: WaveformEngine? = null
 
-        fun getInstance(context: Context): WaveformEngine {
-            return instance ?: synchronized(this) {
-                instance ?: WaveformEngine(context.applicationContext).also { instance = it }
+        fun getInstance(context: Context? = null): WaveformEngine {
+            val ctx = context?.applicationContext ?: ApplicationContextProvider.context
+            return instance?.apply {
+                if (ctx != null && this.context == null) {
+                    this.context = ctx
+                }
+            } ?: synchronized(this) {
+                instance ?: WaveformEngine(ctx).also { instance = it }
             }
         }
     }

@@ -16,7 +16,7 @@ interface ManagedCache {
     fun clear()
 }
 
-class ResourceManager private constructor(context: Context) {
+class ResourceManager private constructor(private var context: Context?) {
 
     // Thread-safe repository of all registered subsystem caches
     private val registeredCaches = ConcurrentHashMap<String, ManagedCache>()
@@ -35,7 +35,9 @@ class ResourceManager private constructor(context: Context) {
     }
 
     init {
-        pressureMonitor.start()
+        if (context != null) {
+            pressureMonitor.start()
+        }
         Log.i("ResourceManager", "ORCA ResourceManager initialized. Max VM Heap: ${maxHeapBytes / (1024 * 1024)} MB. Total Cache Allocation: ${budget.totalMaxMemoryBytes / (1024 * 1024)} MB")
     }
 
@@ -43,9 +45,15 @@ class ResourceManager private constructor(context: Context) {
         @Volatile
         private var instance: ResourceManager? = null
 
-        fun getInstance(context: Context): ResourceManager {
-            return instance ?: synchronized(this) {
-                instance ?: ResourceManager(context.applicationContext).also { instance = it }
+        fun getInstance(context: Context? = null): ResourceManager {
+            val ctx = context?.applicationContext ?: com.litecut.app.timeline.ApplicationContextProvider.context
+            return instance?.apply {
+                if (ctx != null && this.context == null) {
+                    this.context = ctx
+                    this.pressureMonitor.updateContext(ctx)
+                }
+            } ?: synchronized(this) {
+                instance ?: ResourceManager(ctx).also { instance = it }
             }
         }
     }

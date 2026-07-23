@@ -7,7 +7,11 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class BackupManager(private val context: Context) {
+class BackupManager(private var context: Context?) {
+
+    fun updateContext(newContext: Context) {
+        this.context = newContext.applicationContext
+    }
 
     companion object {
         private const val MAX_BACKUPS = 5
@@ -24,7 +28,8 @@ class BackupManager(private val context: Context) {
         }
 
         try {
-            val backupDir = File(context.filesDir, "project_backups/${projectFile.nameWithoutExtension}")
+            val ctx = context ?: ApplicationContextProvider.context ?: return null
+            val backupDir = File(ctx.filesDir, "project_backups/${projectFile.nameWithoutExtension}")
             backupDir.mkdirs()
 
             val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())

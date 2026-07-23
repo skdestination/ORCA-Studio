@@ -6,7 +6,7 @@ import com.litecut.app.timeline.resources.ResourceManager
 import java.util.UUID
 
 class ExportEngine private constructor(
-    private val context: Context,
+    private var context: Context?,
     private val timelineEngine: TimelineEngine
 ) {
     val queue = ExportQueue()
@@ -18,12 +18,13 @@ class ExportEngine private constructor(
         private var instance: ExportEngine? = null
 
         fun getInstance(timelineEngine: TimelineEngine, context: Context? = null): ExportEngine {
-            return instance ?: synchronized(this) {
-                instance ?: if (context != null) {
-                    ExportEngine(context.applicationContext, timelineEngine).also { instance = it }
-                } else {
-                    throw IllegalStateException("ExportEngine is not initialized. Please pass a valid Context first.")
+            val ctx = context?.applicationContext ?: ApplicationContextProvider.context
+            return instance?.apply {
+                if (ctx != null && this.context == null) {
+                    this.context = ctx
                 }
+            } ?: synchronized(this) {
+                instance ?: ExportEngine(ctx, timelineEngine).also { instance = it }
             }
         }
     }

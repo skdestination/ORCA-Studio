@@ -7,7 +7,7 @@ import com.litecut.app.timeline.resources.ManagedCache
 import com.litecut.app.timeline.resources.ResourceManager
 import java.util.concurrent.ConcurrentHashMap
 
-class FontCache private constructor(private val context: Context) : ManagedCache {
+class FontCache private constructor(private var context: Context?) : ManagedCache {
     override val categoryName: String = "font_cache"
 
     // Thread-safe map storing compiled Typeface elements
@@ -18,15 +18,26 @@ class FontCache private constructor(private val context: Context) : ManagedCache
         private var instance: FontCache? = null
 
         fun getInstance(context: Context? = null): FontCache {
-            return instance ?: synchronized(this) {
-                instance ?: if (context != null) {
-                    FontCache(context.applicationContext).also {
-                        instance = it
-                        // Register under central ResourceManager
-                        ResourceManager.getInstance(it.context).registerCache(it.categoryName, it)
+            val ctx = context?.applicationContext ?: ApplicationContextProvider.context
+            return instance?.apply {
+                if (ctx != null && this.context == null) {
+                    this.context = ctx
+                    try {
+                        ResourceManager.getInstance(ctx).registerCache(categoryName, this)
+                    } catch (e: Exception) {
+                        Log.w("FontCache", "Failed to register cache with ResourceManager", e)
                     }
-                } else {
-                    throw IllegalStateException("FontCache is not initialized. Please pass a valid Context first.")
+                }
+            } ?: synchronized(this) {
+                instance ?: FontCache(ctx).also {
+                    instance = it
+                    if (ctx != null) {
+                        try {
+                            ResourceManager.getInstance(ctx).registerCache(it.categoryName, it)
+                        } catch (e: Exception) {
+                            Log.w("FontCache", "Failed to register cache with ResourceManager", e)
+                        }
+                    }
                 }
             }
         }
