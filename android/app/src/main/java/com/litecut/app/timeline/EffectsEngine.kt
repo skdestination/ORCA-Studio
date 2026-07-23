@@ -23,6 +23,10 @@ class EffectsEngine private constructor(private val timelineEngine: TimelineEngi
                 instance ?: EffectsEngine(timelineEngine).also { instance = it }
             }
         }
+
+        fun getInstance(): EffectsEngine {
+            return instance ?: throw IllegalStateException("EffectsEngine has not been initialized.")
+        }
     }
 
     /**

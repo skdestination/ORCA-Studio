@@ -6,7 +6,7 @@ import com.litecut.app.timeline.resources.ManagedCache
 import com.litecut.app.timeline.resources.ResourceManager
 import java.util.concurrent.ConcurrentHashMap
 
-class EffectCache private constructor(private var context: Context?) : ManagedCache {
+class EffectCache private constructor(val context: Context) : ManagedCache {
     override val categoryName: String = "effect_cache"
 
     // Simulates cached heavy effect state (e.g. pre-calculated blur convolution weights,
@@ -18,29 +18,17 @@ class EffectCache private constructor(private var context: Context?) : ManagedCa
         @Volatile
         private var instance: EffectCache? = null
 
-        fun getInstance(context: Context? = null): EffectCache {
-            val ctx = context?.applicationContext ?: ApplicationContextProvider.context
-            return instance?.apply {
-                if (ctx != null && this.context == null) {
-                    this.context = ctx
-                    try {
-                        ResourceManager.getInstance(ctx).registerCache(categoryName, this)
-                    } catch (e: Exception) {
-                        Log.w("EffectCache", "Failed to register cache with ResourceManager", e)
-                    }
-                }
-            } ?: synchronized(this) {
-                instance ?: EffectCache(ctx).also {
+        fun getInstance(context: Context): EffectCache {
+            return instance ?: synchronized(this) {
+                instance ?: EffectCache(context.applicationContext).also {
                     instance = it
-                    if (ctx != null) {
-                        try {
-                            ResourceManager.getInstance(ctx).registerCache(it.categoryName, it)
-                        } catch (e: Exception) {
-                            Log.w("EffectCache", "Failed to register cache with ResourceManager", e)
-                        }
-                    }
+                    ResourceManager.getInstance(context.applicationContext).registerCache(it.categoryName, it)
                 }
             }
+        }
+
+        fun getInstance(): EffectCache {
+            return instance ?: throw IllegalStateException("EffectCache has not been initialized with Context.")
         }
     }
 

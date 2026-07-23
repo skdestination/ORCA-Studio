@@ -5,12 +5,11 @@ import android.graphics.Bitmap
 import android.util.Log
 import com.litecut.app.timeline.resources.ManagedCache
 import com.litecut.app.timeline.resources.ResourceManager
-import com.litecut.app.timeline.ApplicationContextProvider
 import java.util.Collections
 import java.util.LinkedList
 
 class BitmapPool(
-    context: Context?,
+    context: Context,
     private val maxPoolSize: Int = 30
 ) : ManagedCache {
 
@@ -19,9 +18,8 @@ class BitmapPool(
     private val pool = Collections.synchronizedList(LinkedList<Bitmap>())
 
     init {
-        val ctx = context?.applicationContext ?: ApplicationContextProvider.context
         // Register this pool with the centralized ResourceManager
-        ResourceManager.getInstance(ctx).registerCache(categoryName, this)
+        ResourceManager.getInstance(context).registerCache(categoryName, this)
     }
 
     override fun getCurrentSizeBytes(): Long {

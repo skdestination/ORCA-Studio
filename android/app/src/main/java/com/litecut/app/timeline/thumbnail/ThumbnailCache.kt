@@ -8,14 +8,13 @@ import com.litecut.app.timeline.resources.CacheEntry
 import com.litecut.app.timeline.resources.CachePolicy
 import com.litecut.app.timeline.resources.ManagedCache
 import com.litecut.app.timeline.resources.ResourceManager
-import com.litecut.app.timeline.ApplicationContextProvider
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 
 class ThumbnailCache(
-    context: Context?,
+    val context: Context,
     private val bitmapPool: BitmapPool
 ) : ManagedCache {
 
@@ -24,14 +23,10 @@ class ThumbnailCache(
     // Thread-safe repository of current memory cache entries
     private val memoryCache = ConcurrentHashMap<String, CacheEntry<Bitmap>>()
 
-    private val appContext = context?.applicationContext ?: ApplicationContextProvider.context
-
-    private val diskCacheDir: File? by lazy {
-        appContext?.cacheDir?.let { cacheDir ->
-            File(cacheDir, "orca_thumbnails").apply {
-                if (!exists()) {
-                    mkdirs()
-                }
+    private val diskCacheDir: File by lazy {
+        File(context.cacheDir, "orca_thumbnails").apply {
+            if (!exists()) {
+                mkdirs()
             }
         }
     }
@@ -40,13 +35,11 @@ class ThumbnailCache(
 
     init {
         // Register this cache with the centralized ResourceManager
-        ResourceManager.getInstance(appContext).registerCache(categoryName, this)
+        ResourceManager.getInstance(context).registerCache(categoryName, this)
 
         // Run a background disk cleanup on start to maintain clean storage
-        if (appContext != null) {
-            ioExecutor.execute {
-                cleanOldDiskEntries()
-            }
+        ioExecutor.execute {
+            cleanOldDiskEntries()
         }
     }
 
@@ -205,7 +198,7 @@ class ThumbnailCache(
         memoryCache[key] = entry
 
         // Enforce the budget limit check with ResourceManager
-        ResourceManager.getInstance(appContext).checkAndEnforceBudget(categoryName)
+        ResourceManager.getInstance(context).checkAndEnforceBudget(categoryName)
     }
 
     /**
@@ -222,14 +215,13 @@ class ThumbnailCache(
         memoryCache[key]?.unpin()
     }
 
-    private fun getDiskFile(key: String): File? {
-        val dir = diskCacheDir ?: return null
+    private fun getDiskFile(key: String): File {
         val safeKey = key.replace(Regex("[^a-zA-Z0-9_@]"), "_")
-        return File(dir, "$safeKey.jpg")
+        return File(diskCacheDir, "$safeKey.jpg")
     }
 
     private fun cleanOldDiskEntries(maxDiskSizeMb: Long = 50) {
-        val files = diskCacheDir?.listFiles() ?: return
+        val files = diskCacheDir.listFiles() ?: return
         var currentSize = files.sumOf { it.length() }
         val limit = maxDiskSizeMb * 1024 * 1024
 
@@ -248,7 +240,7 @@ class ThumbnailCache(
     override fun clear() {
         memoryCache.clear()
         ioExecutor.execute {
-            val files = diskCacheDir?.listFiles() ?: return@execute
+            val files = diskCacheDir.listFiles() ?: return@execute
             for (file in files) {
                 file.delete()
             }

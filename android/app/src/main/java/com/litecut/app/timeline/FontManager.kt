@@ -7,21 +7,20 @@ import com.litecut.app.timeline.tasks.TaskPriority
 import com.litecut.app.timeline.tasks.TaskScheduler
 import java.io.File
 
-class FontManager private constructor(private var context: Context?) {
+class FontManager private constructor(val context: Context) {
 
     companion object {
         @Volatile
         private var instance: FontManager? = null
 
-        fun getInstance(context: Context? = null): FontManager {
-            val ctx = context?.applicationContext ?: ApplicationContextProvider.context
-            return instance?.apply {
-                if (ctx != null && this.context == null) {
-                    this.context = ctx
-                }
-            } ?: synchronized(this) {
-                instance ?: FontManager(ctx).also { instance = it }
+        fun getInstance(context: Context): FontManager {
+            return instance ?: synchronized(this) {
+                instance ?: FontManager(context.applicationContext).also { instance = it }
             }
+        }
+
+        fun getInstance(): FontManager {
+            return instance ?: throw IllegalStateException("FontManager has not been initialized with Context.")
         }
     }
 

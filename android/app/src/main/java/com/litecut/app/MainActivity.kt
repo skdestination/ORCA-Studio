@@ -19,8 +19,8 @@ class MainActivity : ComponentActivity() {
         // Initialize the splash screen transition before super.onCreate()
         installSplashScreen()
 
-        // Initialize the central OrcaEngine and all its sub-engines with the application context on startup
-        com.litecut.app.timeline.OrcaEngine.getInstance(applicationContext)
+        // Ensure central OrcaEngine singleton instance is retrieved on startup
+        com.litecut.app.timeline.OrcaEngine.getInstance()
 
         super.onCreate(savedInstanceState)
 

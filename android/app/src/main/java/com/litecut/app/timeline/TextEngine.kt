@@ -23,6 +23,10 @@ class TextEngine private constructor(private val timelineEngine: TimelineEngine)
                 instance ?: TextEngine(timelineEngine).also { instance = it }
             }
         }
+
+        fun getInstance(): TextEngine {
+            return instance ?: throw IllegalStateException("TextEngine has not been initialized.")
+        }
     }
 
     /**

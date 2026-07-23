@@ -20,6 +20,10 @@ class ColorEngine private constructor(private val timelineEngine: TimelineEngine
                 instance ?: ColorEngine(timelineEngine).also { instance = it }
             }
         }
+
+        fun getInstance(): ColorEngine {
+            return instance ?: throw IllegalStateException("ColorEngine has not been initialized.")
+        }
     }
 
     /**

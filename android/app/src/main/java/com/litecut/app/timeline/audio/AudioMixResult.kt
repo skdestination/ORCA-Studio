@@ -33,6 +33,15 @@ class AudioMixResult private constructor() {
         }
 
         /**
+         * Obtains an empty/silent AudioMixResult without an active buffer.
+         */
+        fun obtainSilent(): AudioMixResult {
+            val result = pool.poll() ?: AudioMixResult()
+            result.reset()
+            return result
+        }
+
+        /**
          * Recycles the AudioMixResult and returns its leased buffer to the buffer pool.
          */
         fun release(result: AudioMixResult) {

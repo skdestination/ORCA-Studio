@@ -13,11 +13,10 @@ import java.util.concurrent.CopyOnWriteArrayList
  * real-time background rendering, bus structures, and diagnostics.
  * Directly integrates with TimelineEngine, PlaybackClock, ResourceManager, and ExportEngine.
  */
-class AudioMixerEngine private constructor(context: Context?) {
+class AudioMixerEngine private constructor(val context: Context) {
 
-    private var appContext = context?.applicationContext
     private val timelineEngine = TimelineEngine.getInstance()
-    private val resourceManager = ResourceManager.getInstance(appContext)
+    private val resourceManager = ResourceManager.getInstance(context)
 
     // Clocks and sync
     private val clock = PlaybackClock()
@@ -37,17 +36,15 @@ class AudioMixerEngine private constructor(context: Context?) {
 
         /**
          * Returns the thread-safe singleton instance of the AudioMixerEngine.
-         * Safe fallback for standalone contexts if null context is passed.
          */
-        fun getInstance(context: Context? = null): AudioMixerEngine {
-            val ctx = context?.applicationContext ?: com.litecut.app.timeline.ApplicationContextProvider.context
-            return instance?.apply {
-                if (ctx != null && this.appContext == null) {
-                    this.appContext = ctx
-                }
-            } ?: synchronized(this) {
-                instance ?: AudioMixerEngine(ctx).also { instance = it }
+        fun getInstance(context: Context): AudioMixerEngine {
+            return instance ?: synchronized(this) {
+                instance ?: AudioMixerEngine(context.applicationContext).also { instance = it }
             }
+        }
+
+        fun getInstance(): AudioMixerEngine {
+            return instance ?: throw IllegalStateException("AudioMixerEngine has not been initialized with Context.")
         }
     }
 
@@ -56,8 +53,6 @@ class AudioMixerEngine private constructor(context: Context?) {
         resourceManager.registerCache(AudioBufferPool.getInstance().categoryName, AudioBufferPool.getInstance())
         resourceManager.registerCache(AudioCache.getInstance().categoryName, AudioCache.getInstance())
 
-        // Start default mixing session automatically
-        startSession()
         Log.i("AudioMixerEngine", "Central Native Audio Mixer Engine successfully initialized.")
     }
 
@@ -88,9 +83,6 @@ class AudioMixerEngine private constructor(context: Context?) {
     }
 
     fun getActiveSession(): AudioMixerSession? {
-        if (activeSession == null) {
-            startSession()
-        }
         return activeSession
     }
 
@@ -106,7 +98,11 @@ class AudioMixerEngine private constructor(context: Context?) {
      * Thread-safe; suitable for background render loops.
      */
     fun mixNextChunk(currentTimeSeconds: Double): AudioMixResult {
-        val session = getActiveSession() ?: startSession()
+        val session = getActiveSession()
+        if (session == null) {
+            Log.w("AudioMixerEngine", "mixNextChunk called without an active AudioMixerSession. Returning silent result.")
+            return AudioMixResult.obtainSilent()
+        }
         
         // Mix all active channels routed into parent buses
         return pipeline.render(

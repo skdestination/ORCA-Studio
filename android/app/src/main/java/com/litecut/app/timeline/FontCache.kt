@@ -7,7 +7,7 @@ import com.litecut.app.timeline.resources.ManagedCache
 import com.litecut.app.timeline.resources.ResourceManager
 import java.util.concurrent.ConcurrentHashMap
 
-class FontCache private constructor(private var context: Context?) : ManagedCache {
+class FontCache private constructor(val context: Context) : ManagedCache {
     override val categoryName: String = "font_cache"
 
     // Thread-safe map storing compiled Typeface elements
@@ -17,29 +17,17 @@ class FontCache private constructor(private var context: Context?) : ManagedCach
         @Volatile
         private var instance: FontCache? = null
 
-        fun getInstance(context: Context? = null): FontCache {
-            val ctx = context?.applicationContext ?: ApplicationContextProvider.context
-            return instance?.apply {
-                if (ctx != null && this.context == null) {
-                    this.context = ctx
-                    try {
-                        ResourceManager.getInstance(ctx).registerCache(categoryName, this)
-                    } catch (e: Exception) {
-                        Log.w("FontCache", "Failed to register cache with ResourceManager", e)
-                    }
-                }
-            } ?: synchronized(this) {
-                instance ?: FontCache(ctx).also {
+        fun getInstance(context: Context): FontCache {
+            return instance ?: synchronized(this) {
+                instance ?: FontCache(context.applicationContext).also {
                     instance = it
-                    if (ctx != null) {
-                        try {
-                            ResourceManager.getInstance(ctx).registerCache(it.categoryName, it)
-                        } catch (e: Exception) {
-                            Log.w("FontCache", "Failed to register cache with ResourceManager", e)
-                        }
-                    }
+                    ResourceManager.getInstance(context.applicationContext).registerCache(it.categoryName, it)
                 }
             }
+        }
+
+        fun getInstance(): FontCache {
+            return instance ?: throw IllegalStateException("FontCache has not been initialized with Context.")
         }
     }
 

@@ -2,7 +2,6 @@ package com.litecut.app.timeline.audio
 
 import android.content.Context
 import android.util.Log
-import com.litecut.app.timeline.ApplicationContextProvider
 import com.litecut.app.timeline.tasks.CancellationToken
 import com.litecut.app.timeline.tasks.RetryPolicy
 import com.litecut.app.timeline.tasks.Task
@@ -14,7 +13,7 @@ import com.litecut.app.timeline.tasks.TaskPriority
  * Employs automatic high-fidelity synthetic fallbacks for missing/unsupported/corrupted files.
  */
 class WaveformWorker(
-    private val context: Context?,
+    private val context: Context,
     val clipId: String,
     val src: String,
     taskPriority: TaskPriority = TaskPriority.HIGH
@@ -48,7 +47,7 @@ class WaveformWorker(
 
         try {
             // 1. Core Extractor Step
-            val extractor = WaveformExtractor(context ?: ApplicationContextProvider.context)
+            val extractor = WaveformExtractor(context)
             val extracted = extractor.extractPcm(src, token, onProgressUpdate)
 
             if (token.isCancelled()) {

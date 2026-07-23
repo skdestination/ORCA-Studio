@@ -5,7 +5,7 @@ import android.util.Log
 import com.litecut.app.timeline.tasks.TaskScheduler
 
 class ExportScheduler(
-    private var context: Context?,
+    private val context: Context,
     private val queue: ExportQueue
 ) {
     private val taskScheduler = TaskScheduler.getInstance(context)

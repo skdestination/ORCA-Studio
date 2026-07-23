@@ -7,7 +7,7 @@ import com.litecut.app.timeline.tasks.TaskScheduler
 import org.json.JSONObject
 import java.io.File
 
-class ProjectEngine private constructor(private var context: Context?) {
+class ProjectEngine private constructor(val context: Context) {
 
     var currentDocument: ProjectDocument? = null
         private set
@@ -27,17 +27,14 @@ class ProjectEngine private constructor(private var context: Context?) {
         @Volatile
         private var instance: ProjectEngine? = null
 
-        fun getInstance(context: Context? = null): ProjectEngine {
-            val ctx = context?.applicationContext ?: ApplicationContextProvider.context
-            return instance?.apply {
-                if (ctx != null && this.context == null) {
-                    this.context = ctx
-                    this.autoSaveManager.updateContext(ctx)
-                    this.backupManager.updateContext(ctx)
-                }
-            } ?: synchronized(this) {
-                instance ?: ProjectEngine(ctx).also { instance = it }
+        fun getInstance(context: Context): ProjectEngine {
+            return instance ?: synchronized(this) {
+                instance ?: ProjectEngine(context.applicationContext).also { instance = it }
             }
+        }
+
+        fun getInstance(): ProjectEngine {
+            return instance ?: throw IllegalStateException("ProjectEngine has not been initialized with Context.")
         }
     }
 

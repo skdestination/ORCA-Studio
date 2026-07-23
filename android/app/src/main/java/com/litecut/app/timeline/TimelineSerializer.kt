@@ -86,7 +86,7 @@ class TimelineSerializer {
         
         // 5. Try to capture current export settings if they exist
         try {
-            val exportEngine = ExportEngine.getInstance(timelineEngine, null)
+            val exportEngine = ExportEngine.getInstance()
             val activeSessions = exportEngine.getActiveSessions()
             if (activeSessions.isNotEmpty()) {
                 document.exportSettings = activeSessions.first().settings.toJSONObject()

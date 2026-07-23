@@ -12,7 +12,7 @@ import java.util.concurrent.CopyOnWriteArrayList
  * Acts as the single high-performance, thread-safe entry point for all preview operations,
  * supporting high frame rates up to 120 FPS at 4K HDR.
  */
-class PreviewEngine private constructor(private var context: Context?) : PreviewSchedulerListener {
+class PreviewEngine private constructor(val context: Context) : PreviewSchedulerListener {
 
     private val timelineEngine = TimelineEngine.getInstance()
     private val renderPipeline = RenderPipeline.getInstance()
@@ -38,15 +38,14 @@ class PreviewEngine private constructor(private var context: Context?) : Preview
         @Volatile
         private var instance: PreviewEngine? = null
 
-        fun getInstance(context: Context? = null): PreviewEngine {
-            val ctx = context?.applicationContext
-            return instance?.apply {
-                if (ctx != null && this.context == null) {
-                    this.context = ctx
-                }
-            } ?: synchronized(this) {
-                instance ?: PreviewEngine(ctx).also { instance = it }
+        fun getInstance(context: Context): PreviewEngine {
+            return instance ?: synchronized(this) {
+                instance ?: PreviewEngine(context.applicationContext).also { instance = it }
             }
+        }
+
+        fun getInstance(): PreviewEngine {
+            return instance ?: throw IllegalStateException("PreviewEngine has not been initialized with Context.")
         }
     }
 

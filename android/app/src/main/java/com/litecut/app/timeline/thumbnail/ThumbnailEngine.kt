@@ -6,10 +6,9 @@ import android.util.Log
 import com.litecut.app.timeline.Clip
 import com.litecut.app.timeline.TimelineEngine
 import com.litecut.app.timeline.Viewport
-import com.litecut.app.timeline.ApplicationContextProvider
 import kotlin.math.abs
 
-class ThumbnailEngine private constructor(context: Context?) {
+class ThumbnailEngine private constructor(val context: Context) {
 
     val bitmapPool = BitmapPool(context)
     val cache = ThumbnailCache(context, bitmapPool)
@@ -29,11 +28,14 @@ class ThumbnailEngine private constructor(context: Context?) {
         @Volatile
         private var instance: ThumbnailEngine? = null
 
-        fun getInstance(context: Context? = null): ThumbnailEngine {
-            val ctx = context?.applicationContext ?: ApplicationContextProvider.context
+        fun getInstance(context: Context): ThumbnailEngine {
             return instance ?: synchronized(this) {
-                instance ?: ThumbnailEngine(ctx).also { instance = it }
+                instance ?: ThumbnailEngine(context.applicationContext).also { instance = it }
             }
+        }
+
+        fun getInstance(): ThumbnailEngine {
+            return instance ?: throw IllegalStateException("ThumbnailEngine has not been initialized with Context.")
         }
     }
 

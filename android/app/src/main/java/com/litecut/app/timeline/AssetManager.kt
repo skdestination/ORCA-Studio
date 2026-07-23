@@ -24,7 +24,7 @@ interface AssetPlugin {
     fun onImport(entry: AssetEntry)
 }
 
-class AssetManager private constructor(private var context: Context?) {
+class AssetManager private constructor(val context: Context) {
 
     val database = AssetDatabase()
     val scanner = AssetScanner(context)
@@ -50,22 +50,20 @@ class AssetManager private constructor(private var context: Context?) {
         @Volatile
         private var instance: AssetManager? = null
 
-        fun getInstance(context: Context? = null): AssetManager {
-            val ctx = context?.applicationContext ?: ApplicationContextProvider.context
-            return instance?.apply {
-                if (ctx != null && this.context == null) {
-                    this.context = ctx
-                    this.database.load(ctx)
-                }
-            } ?: synchronized(this) {
-                instance ?: AssetManager(ctx).also { instance = it }
+        fun getInstance(context: Context): AssetManager {
+            return instance ?: synchronized(this) {
+                instance ?: AssetManager(context.applicationContext).also { instance = it }
             }
+        }
+
+        fun getInstance(): AssetManager {
+            return instance ?: throw IllegalStateException("AssetManager has not been initialized with Context.")
         }
     }
 
     init {
         // Load existing database from disk
-        context?.let { database.load(it) }
+        database.load(context)
 
         // Initialize and register all caches with the central ResourceManager
         setupResourceManagerCaches()

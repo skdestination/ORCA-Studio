@@ -7,11 +7,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class BackupManager(private var context: Context?) {
-
-    fun updateContext(newContext: Context) {
-        this.context = newContext.applicationContext
-    }
+class BackupManager(private val context: Context) {
 
     companion object {
         private const val MAX_BACKUPS = 5
