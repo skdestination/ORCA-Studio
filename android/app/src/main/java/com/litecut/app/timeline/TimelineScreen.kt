@@ -1,5 +1,13 @@
 package com.litecut.app.timeline
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+
 import com.litecut.app.controls.EditorBottomToolBar
 import com.litecut.app.controls.FlowBarSubPanelContainer
 import androidx.compose.foundation.background
@@ -20,6 +28,7 @@ fun TimelineScreen(
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val engine = remember { TimelineEngine.getInstance() }
     var currentTime by remember { mutableStateOf(engine.currentTime) }
     var selectedClipIds by remember { mutableStateOf(engine.selectedClipIds.toList()) }
@@ -32,7 +41,41 @@ fun TimelineScreen(
     var exportFps by remember { mutableStateOf("30") }
     var isFullscreen by remember { mutableStateOf(false) }
     var isMediaDrawerOpen by remember { mutableStateOf(false) }
-    var isMediaPermissionGranted by remember { mutableStateOf(true) }
+
+    fun checkStoragePermissionsGranted(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(context, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    var isMediaPermissionGranted by remember { mutableStateOf(checkStoragePermissionsGranted()) }
+
+    val storagePermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val granted = permissions.values.any { it }
+        isMediaPermissionGranted = granted || checkStoragePermissionsGranted()
+    }
+
+    val requestStoragePermissions = {
+        val permissionsToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO,
+                Manifest.permission.READ_MEDIA_AUDIO
+            )
+        } else {
+            arrayOf(
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
+            )
+        }
+        storagePermissionLauncher.launch(permissionsToRequest)
+    }
+
     var activeControlMenu by remember { mutableStateOf<String?>(null) }
 
     // Periodically poll playhead state for UI display synchronization
@@ -176,7 +219,12 @@ fun TimelineScreen(
 
                     // Floating Action Pill (w-[218px]) positioned OVER the timeline
                     EditorBottomToolBar(
-                        onAddMediaClick = { isMediaDrawerOpen = true },
+                        onAddMediaClick = {
+                            if (!isMediaPermissionGranted) {
+                                requestStoragePermissions()
+                            }
+                            isMediaDrawerOpen = true
+                        },
                         onVoiceoverClick = { activeControlMenu = if (activeControlMenu == "voiceover") null else "voiceover" },
                         onVolumeClick = { activeControlMenu = if (activeControlMenu == "volume") null else "volume" },
                         onAddTextClick = {
@@ -255,7 +303,7 @@ fun TimelineScreen(
                     isVisible = isMediaDrawerOpen,
                     onCloseDrawer = { isMediaDrawerOpen = false },
                     isPermissionGranted = isMediaPermissionGranted,
-                    onRequestPermission = { isMediaPermissionGranted = true },
+                    onRequestPermission = { requestStoragePermissions() },
                     onMediaSelected = { mediaItem ->
                         val track = engine.getAllLayers().firstOrNull()
                         if (track != null) {

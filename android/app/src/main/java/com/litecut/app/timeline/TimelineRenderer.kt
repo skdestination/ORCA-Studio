@@ -530,33 +530,32 @@ class TimelineRenderer {
         // 4. Draw Ruler background over clips (covers top edge)
         tempRect.set(0f, 0f, viewport.width.toFloat(), headerHeight)
         canvas.drawRect(tempRect, rulerBgPaint)
+        canvas.drawLine(0f, headerHeight, viewport.width.toFloat(), headerHeight, rulerTickPaint.apply { color = TimelineTheme.headerBorderColor })
 
-        // Draw ruler tick marks
-        val startSec = (viewport.scrollX / pps).toInt()
-        val endSec = ((viewport.scrollX + viewport.width) / pps).toInt() + 1
+        // Draw ruler tick marks and time labels
+        val startSec = Math.max(0, (viewport.scrollX / pps).toInt() - 1)
+        val endSec = ((viewport.scrollX + viewport.width) / pps).toInt() + 2
         for (sec in startSec..endSec) {
             val tickX = (sec * pps - viewport.scrollX).toFloat()
-            if (tickX in 0f..viewport.width.toFloat()) {
-                canvas.drawLine(tickX, headerHeight - 15f, tickX, headerHeight, rulerTickPaint)
+            if (tickX in -20f..(viewport.width + 20).toFloat()) {
+                canvas.drawLine(tickX, headerHeight - 4f, tickX, headerHeight, rulerTickPaint.apply { color = TimelineTheme.rulerTickColor })
                 val label = String.format("%d:%02d", sec / 60, sec % 60)
                 rulerTextPaint.getTextBounds(label, 0, label.length, tempTextBounds)
-                canvas.drawText(label, tickX - tempTextBounds.width() / 2f, headerHeight - 25f, rulerTextPaint)
+                canvas.drawText(label, tickX - tempTextBounds.width() / 2f, headerHeight - 3f, rulerTextPaint)
             }
         }
 
-        // 5. Draw Playhead
+        // 5. Draw Playhead if needed (handled by Stationary Playhead overlay or native line)
         val playheadX = (engine.currentTime * pps - viewport.scrollX).toFloat()
         if (playheadX in 0f..viewport.width.toFloat()) {
-            // Draw Playhead vertical line
             canvas.drawLine(playheadX, headerHeight, playheadX, viewport.height.toFloat(), playheadLinePaint)
             
-            // Draw Playhead header polygon (triangle pointing down)
             playheadPath.reset()
-            playheadPath.moveTo(playheadX - 15f, 0f)
-            playheadPath.lineTo(playheadX + 15f, 0f)
-            playheadPath.lineTo(playheadX + 15f, headerHeight * 0.6f)
-            playheadPath.lineTo(playheadX, headerHeight)
-            playheadPath.lineTo(playheadX - 15f, headerHeight * 0.6f)
+            playheadPath.moveTo(playheadX - 5f, 0f)
+            playheadPath.lineTo(playheadX + 5f, 0f)
+            playheadPath.lineTo(playheadX + 5f, 6f)
+            playheadPath.lineTo(playheadX, 10f)
+            playheadPath.lineTo(playheadX - 5f, 6f)
             playheadPath.close()
             canvas.drawPath(playheadPath, playheadHeadPaint)
         }

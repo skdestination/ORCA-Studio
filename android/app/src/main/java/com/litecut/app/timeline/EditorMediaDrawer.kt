@@ -25,6 +25,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import android.content.Context
+import android.provider.MediaStore
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+
 data class MediaItemModel(
     val id: String,
     val name: String,
@@ -58,6 +64,52 @@ val DEFAULT_FOLDERS = listOf(
     FolderModel("Downloads", 19, "📥")
 )
 
+fun queryDeviceMedia(context: Context, typeFilter: String): List<MediaItemModel> {
+    val items = mutableListOf<MediaItemModel>()
+    try {
+        val collection = when (typeFilter.lowercase()) {
+            "image" -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
+            "audio" -> MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
+            else -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        }
+        val projection = arrayOf(
+            MediaStore.MediaColumns._ID,
+            MediaStore.MediaColumns.DISPLAY_NAME,
+            MediaStore.MediaColumns.DATA,
+            MediaStore.MediaColumns.DURATION
+        )
+        context.contentResolver.query(collection, projection, null, null, "${MediaStore.MediaColumns.DATE_ADDED} DESC LIMIT 30")?.use { cursor ->
+            val idCol = cursor.getColumnIndex(MediaStore.MediaColumns._ID)
+            val nameCol = cursor.getColumnIndex(MediaStore.MediaColumns.DISPLAY_NAME)
+            val dataCol = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+            val durCol = cursor.getColumnIndex(MediaStore.MediaColumns.DURATION)
+
+            while (cursor.moveToNext()) {
+                val id = if (idCol >= 0) cursor.getLong(idCol).toString() else "0"
+                val name = if (nameCol >= 0) cursor.getString(nameCol) ?: "Media_$id" else "Media_$id"
+                val path = if (dataCol >= 0) cursor.getString(dataCol) ?: "" else ""
+                val durationMs = if (durCol >= 0) cursor.getLong(durCol) else 0L
+                val secs = (durationMs / 1000).toInt()
+                val durText = if (secs > 0) String.format("%d:%02d", secs / 60, secs % 60) else ""
+
+                items.add(
+                    MediaItemModel(
+                        id = id,
+                        name = name,
+                        type = typeFilter.lowercase(),
+                        durationText = durText,
+                        folderName = "Storage",
+                        path = path
+                    )
+                )
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+    return items
+}
+
 @Composable
 fun EditorMediaDrawer(
     isVisible: Boolean,
@@ -67,11 +119,47 @@ fun EditorMediaDrawer(
     isPermissionGranted: Boolean = true,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     var selectedTab by remember { mutableStateOf("Video") } // "Image", "Video", "Audio", "Folders"
     var currentFolder by remember { mutableStateOf<String?>(null) }
 
-    val filteredMediaItems = remember(selectedTab, currentFolder) {
-        DEFAULT_MOCK_MEDIA_ITEMS.filter { item ->
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let { fileUri ->
+            val fileName = fileUri.lastPathSegment?.substringAfterLast('/') ?: "imported_media"
+            val itemType = when {
+                fileName.endsWith(".mp3", true) || fileName.endsWith(".wav", true) || selectedTab == "Audio" -> "audio"
+                fileName.endsWith(".jpg", true) || fileName.endsWith(".png", true) || selectedTab == "Image" -> "image"
+                else -> "video"
+            }
+            onMediaSelected(
+                MediaItemModel(
+                    id = "import_${System.currentTimeMillis()}",
+                    name = fileName,
+                    type = itemType,
+                    durationText = "0:10",
+                    folderName = "Imported",
+                    path = fileUri.toString()
+                )
+            )
+        }
+    }
+
+    val realDeviceMedia = remember(isPermissionGranted, selectedTab) {
+        if (isPermissionGranted) {
+            val mediaType = when (selectedTab) {
+                "Image" -> "image"
+                "Audio" -> "audio"
+                else -> "video"
+            }
+            queryDeviceMedia(context, mediaType)
+        } else emptyList()
+    }
+
+    val filteredMediaItems = remember(selectedTab, currentFolder, realDeviceMedia) {
+        val baseList = if (realDeviceMedia.isNotEmpty()) realDeviceMedia else DEFAULT_MOCK_MEDIA_ITEMS
+        baseList.filter { item ->
             if (currentFolder != null) {
                 item.folderName.equals(currentFolder, ignoreCase = true)
             } else {
@@ -315,7 +403,13 @@ fun EditorMediaDrawer(
                                         .background(Color(0xFF18181B))
                                         .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(12.dp))
                                         .clickable {
-                                            // Browse device files picker
+                                            val mime = when (selectedTab) {
+                                                "Image" -> "image/*"
+                                                "Audio" -> "audio/*"
+                                                "Video" -> "video/*"
+                                                else -> "*/*"
+                                            }
+                                            filePickerLauncher.launch(mime)
                                         }
                                         .padding(8.dp),
                                     contentAlignment = Alignment.Center

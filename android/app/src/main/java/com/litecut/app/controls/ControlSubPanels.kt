@@ -30,6 +30,13 @@ import com.litecut.app.timeline.volume
 import com.litecut.app.timeline.text
 import com.litecut.app.timeline.BezierCurve
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+
 @Composable
 fun FlowBarSubPanelContainer(
     activeMenu: String?,
@@ -326,34 +333,66 @@ fun AudioControlPanel(
 
 @Composable
 fun VoiceoverRecorderPanel() {
+    val context = LocalContext.current
     var isRecording by remember { mutableStateOf(false) }
+    var hasMicPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val micPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasMicPermission = isGranted
+        if (isGranted) {
+            isRecording = true
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(
-            text = if (isRecording) "RECORDING..." else "Tap mic to start",
-            color = if (isRecording) Color(0xFFEF4444) else Color(0xFFA1A1AA),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold
-        )
-
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(if (isRecording) Color(0xFFEF4444) else Color(0xFF6366F1))
-                .clickable { isRecording = !isRecording },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
-                contentDescription = "Voiceover",
-                tint = Color.White,
-                modifier = Modifier.size(24.dp)
+        if (!hasMicPermission) {
+            Text(
+                text = "Microphone Permission Required",
+                color = Color(0xFFEF4444),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold
             )
+            Button(
+                onClick = { micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text("Allow Mic Access", fontSize = 10.sp, color = Color.White)
+            }
+        } else {
+            Text(
+                text = if (isRecording) "RECORDING..." else "Tap mic to start",
+                color = if (isRecording) Color(0xFFEF4444) else Color(0xFFA1A1AA),
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(if (isRecording) Color(0xFFEF4444) else Color(0xFF6366F1))
+                    .clickable { isRecording = !isRecording },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
+                    contentDescription = "Voiceover",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
         }
     }
 }
