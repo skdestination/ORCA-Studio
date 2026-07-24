@@ -218,7 +218,7 @@ fun TimelineScreen(
                         },
                         onExtractAudioClick = {
                             selectedClip?.let { clip ->
-                                val audioLayer = engine.getAllLayers().find { it.type == LayerType.AUDIO } ?: engine.getAllLayers().lastOrNull()
+                                val audioLayer = engine.getAllLayers().find { it.name?.contains("Audio", ignoreCase = true) == true } ?: engine.getAllLayers().lastOrNull()
                                 if (audioLayer != null) {
                                     val extractedAudio = Clip(
                                         id = "clip_extracted_${System.currentTimeMillis()}",
