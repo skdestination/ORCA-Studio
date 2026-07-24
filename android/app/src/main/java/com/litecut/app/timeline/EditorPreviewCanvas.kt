@@ -13,6 +13,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -54,10 +56,10 @@ fun EditorPreviewCanvas(
     }
 
     // Transform State for Active Clip On-Canvas Manipulation
-    var offsetX by remember { mutableFloatStateOf(0f) }
-    var offsetY by remember { mutableFloatStateOf(0f) }
-    var scale by remember { mutableFloatStateOf(1f) }
-    var rotation by remember { mutableFloatStateOf(0f) }
+    var offsetX by remember { mutableStateOf(0f) }
+    var offsetY by remember { mutableStateOf(0f) }
+    var scale by remember { mutableStateOf(1f) }
+    var rotation by remember { mutableStateOf(0f) }
 
     // Snap Guides visibility states
     var showSnapX by remember { mutableStateOf(false) } // Vertical center guide (Magenta)
