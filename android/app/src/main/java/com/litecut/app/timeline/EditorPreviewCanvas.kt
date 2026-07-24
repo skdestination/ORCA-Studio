@@ -1,41 +1,33 @@
 package com.litecut.app.timeline
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 
 /**
  * Section B: Video Preview Canvas Area for ORCA Studio.
- * Handles dynamic aspect ratios, real-time transform matrices (scale, translation, rotation),
- * on-screen selection bounding box handles, and snap alignment guides.
+ * Renders the video/image preview canvas with rounded corners matching React exactly.
  */
 @Composable
 fun EditorPreviewCanvas(
@@ -63,33 +55,30 @@ fun EditorPreviewCanvas(
     var rotation by remember { mutableStateOf(0f) }
 
     // Snap Guides visibility states
-    var showSnapX by remember { mutableStateOf(false) } // Vertical center guide (Magenta)
-    var showSnapY by remember { mutableStateOf(false) } // Horizontal center guide (Cyan)
+    var showSnapX by remember { mutableStateOf(false) } // Vertical center guide
+    var showSnapY by remember { mutableStateOf(false) } // Horizontal center guide
 
     val isClipSelected = selectedClipName != null
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF08080A))
-            .padding(12.dp),
+            .background(Color(0xFF09090B))
+            .padding(16.dp),
         contentAlignment = Alignment.Center
     ) {
         BoxWithConstraints(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            val containerWidth = maxWidth
-            val containerHeight = maxHeight
-
-            // Calculate bounding dimensions to keep aspect ratio inside container
+            // Main Aspect Ratio Frame matching React
             Box(
                 modifier = Modifier
                     .aspectRatio(ratioValue)
-                    .fillMaxHeight(if (ratioValue < 1f) 0.95f else 0.8f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF0C0C0E))
-                    .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(8.dp)),
+                    .fillMaxHeight(0.92f)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFF121215))
+                    .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(24.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 // Outer Canvas Surface
@@ -104,7 +93,6 @@ fun EditorPreviewCanvas(
                                 val newX = offsetX + pan.x
                                 val newY = offsetY + pan.y
 
-                                // Snap alignment logic (threshold = 10px)
                                 showSnapX = abs(newX) < 10f
                                 offsetX = if (showSnapX) 0f else newX
 
@@ -114,7 +102,7 @@ fun EditorPreviewCanvas(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    // Clip Rendering Container with Realtime CSS/Matrix Transforms
+                    // Aesthetic Media Frame Rendering matching React photo preview in Image 2
                     Box(
                         modifier = Modifier
                             .graphicsLayer {
@@ -124,63 +112,50 @@ fun EditorPreviewCanvas(
                                 scaleY = scale
                                 rotationZ = rotation
                             }
-                            .fillMaxSize(0.92f)
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(24.dp))
                             .background(
                                 Brush.verticalGradient(
                                     listOf(
-                                        Color(0xFF2A2A32),
-                                        Color(0xFF18181E),
-                                        Color(0xFF0F0F12)
+                                        Color(0xFF2C221E),
+                                        Color(0xFF1A1614),
+                                        Color(0xFF0F0D0C)
                                     )
-                                ),
-                                RoundedCornerShape(12.dp)
-                            )
-                            .border(
-                                1.dp,
-                                if (isClipSelected) Color(0xFF6366F1) else Color(0x33FFFFFF),
-                                RoundedCornerShape(12.dp)
+                                )
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Text(
-                                text = selectedClipName ?: "Alpine Peaks (1080p)",
-                                color = Color.White,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = String.format(
-                                    "%02d:%02d.%02d",
-                                    (currentTime / 60).toInt(),
-                                    (currentTime % 60).toInt(),
-                                    ((currentTime % 1) * 100).toInt()
-                                ),
-                                color = Color(0xFFFF2D55),
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Bold
+                        // High quality cinematic portrait visual preview matching React preview image
+                        Canvas(modifier = Modifier.fillMaxSize()) {
+                            val w = size.width
+                            val h = size.height
+
+                            // Draw subtle cinematic lighting gradient & portrait subject representation
+                            drawRect(
+                                brush = Brush.radialGradient(
+                                    colors = listOf(
+                                        Color(0xFF8D6E63).copy(alpha = 0.45f),
+                                        Color(0xFF3E2723).copy(alpha = 0.30f),
+                                        Color(0xFF121010)
+                                    ),
+                                    center = Offset(w * 0.5f, h * 0.4f),
+                                    radius = h * 0.6f
+                                )
                             )
                         }
 
-                        // On-Screen Bounding Box & Transform Handles
+                        // On-Screen Bounding Box & Transform Handles if selected
                         if (isClipSelected) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .border(1.5.dp, Color(0xFF6366F1), RoundedCornerShape(6.dp))
+                                    .border(1.5.dp, Color(0xFF6366F1), RoundedCornerShape(24.dp))
                             ) {
                                 // 4 Corner Scale Handles
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.TopStart)
-                                        .offset((-4).dp, (-4).dp)
+                                        .offset(8.dp, 8.dp)
                                         .size(10.dp)
                                         .background(Color.White, CircleShape)
                                         .border(1.5.dp, Color(0xFF6366F1), CircleShape)
@@ -188,7 +163,7 @@ fun EditorPreviewCanvas(
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
-                                        .offset(4.dp, (-4).dp)
+                                        .offset((-8).dp, 8.dp)
                                         .size(10.dp)
                                         .background(Color.White, CircleShape)
                                         .border(1.5.dp, Color(0xFF6366F1), CircleShape)
@@ -196,7 +171,7 @@ fun EditorPreviewCanvas(
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomStart)
-                                        .offset((-4).dp, 4.dp)
+                                        .offset(8.dp, (-8).dp)
                                         .size(10.dp)
                                         .background(Color.White, CircleShape)
                                         .border(1.5.dp, Color(0xFF6366F1), CircleShape)
@@ -204,32 +179,11 @@ fun EditorPreviewCanvas(
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
-                                        .offset(4.dp, 4.dp)
+                                        .offset((-8).dp, (-8).dp)
                                         .size(10.dp)
                                         .background(Color.White, CircleShape)
                                         .border(1.5.dp, Color(0xFF6366F1), CircleShape)
                                 )
-
-                                // Top Rotation Stem Handle
-                                Column(
-                                    modifier = Modifier
-                                        .align(Alignment.TopCenter)
-                                        .offset(y = (-20).dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .background(Color.White, CircleShape)
-                                            .border(1.5.dp, Color(0xFF6366F1), CircleShape)
-                                    )
-                                    Box(
-                                        modifier = Modifier
-                                            .width(1.5.dp)
-                                            .height(10.dp)
-                                            .background(Color(0xFF6366F1))
-                                    )
-                                }
                             }
                         }
                     }
@@ -239,7 +193,6 @@ fun EditorPreviewCanvas(
                         val canvasW = size.width
                         val canvasH = size.height
 
-                        // Magenta Vertical Snap Guide
                         if (showSnapX) {
                             drawLine(
                                 color = Color(0xFFFF007F),
@@ -250,7 +203,6 @@ fun EditorPreviewCanvas(
                             )
                         }
 
-                        // Cyan Horizontal Snap Guide
                         if (showSnapY) {
                             drawLine(
                                 color = Color(0xFF00E5FF),

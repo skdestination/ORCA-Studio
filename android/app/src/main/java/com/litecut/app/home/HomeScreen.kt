@@ -199,7 +199,7 @@ fun HomeScreen(
                             .clip(CircleShape)
                             .background(Color(0xFF18181B))
                             .border(1.5.dp, Color.White.copy(alpha = 0.2f), CircleShape)
-                            .padding(2.dp)
+                            .padding(1.5.dp)
                     ) {
                         Box(
                             modifier = Modifier
@@ -209,7 +209,7 @@ fun HomeScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "C",
+                                text = "R",
                                 color = Color.White,
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 18.sp
@@ -226,7 +226,7 @@ fun HomeScreen(
                             letterSpacing = 2.sp
                         )
                         Text(
-                            text = "Creator",
+                            text = "Ritwik",
                             color = Color.White,
                             fontWeight = FontWeight.ExtraBold,
                             fontSize = 16.sp,
@@ -350,7 +350,7 @@ fun HomeScreen(
                             .background(Color(0xFF818CF8).copy(alpha = pulseAlpha))
                     )
                     Text(
-                        text = "NATIVE STUDIO ENGINE",
+                        text = "React Sandbox Preview",
                         color = Color(0xFFA5B4FC),
                         fontSize = 8.5.sp,
                         fontWeight = FontWeight.Bold,
@@ -477,8 +477,8 @@ fun HomeScreen(
 
                     Box(
                         modifier = Modifier
-                            .width(250.dp)
-                            .height(380.dp)
+                            .width(240.dp)
+                            .height(370.dp)
                             .scale(cardScale)
                             .clip(RoundedCornerShape(32.dp))
                             .background(Color(0xFF18181B))
