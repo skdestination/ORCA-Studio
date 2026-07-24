@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,7 +55,7 @@ fun EditorTimelineArea(
                     .width(120.dp)
                     .fillMaxHeight()
                     .background(Color(0xFF121216))
-                    .border(end = 1.dp, color = Color(0x1AFFFFFF))
+                    .border(1.dp, Color(0x1AFFFFFF))
                     .padding(vertical = 8.dp, horizontal = 6.dp)
             ) {
                 // Header Label for Tracks

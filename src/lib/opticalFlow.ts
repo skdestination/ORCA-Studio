@@ -139,7 +139,8 @@ export async function loadVideoMetadata(
 export async function processSmoothSlowMoBrowser(
   videoBlobUrlOrBlob: string | Blob,
   speedFactor: number,
-  onProgress: (progress: number) => void
+  onProgress: (progress: number) => void,
+  algorithm: "dis" | "raft" = "dis"
 ): Promise<{
   url: string;
   fileId: string;
@@ -233,10 +234,12 @@ export async function processSmoothSlowMoBrowser(
     }
 
     // 2. Decode all frames and verify timestamps
-    console.log("Invoking native decodeAllFrames pipeline for timestamp verification...");
+    console.log(`Invoking native decodeAllFrames pipeline with algorithm: ${algorithm}...`);
     const decodeResult = await SmoothSlowMotionNative.decodeAllFrames({
       inputPath: rawInput,
-      speed: speedFactor
+      speed: speedFactor,
+      algorithm: algorithm,
+      mode: algorithm
     });
     console.log("Native decoding and timestamp verification completed successfully:", decodeResult);
 

@@ -178,7 +178,7 @@ fun TimelineScreen(
                     }
                     isMediaDrawerOpen = false
                 },
-                modifier = Modifier.align(Alignment.BottomCenter)
+                modifier = Modifier.align(Alignment.CenterHorizontally)
             )
         }
     }

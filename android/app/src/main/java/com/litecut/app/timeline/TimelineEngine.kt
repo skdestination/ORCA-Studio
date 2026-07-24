@@ -479,6 +479,14 @@ class TimelineEngine {
         return layer
     }
 
+    fun addLayer(layer: Layer) {
+        layers.add(layer)
+    }
+
+    fun removeLayer(id: String) {
+        deleteLayer(id)
+    }
+
     fun deleteLayer(id: String) {
         layers.removeAll { it.id == id }
         // Delete all clips on this layer too

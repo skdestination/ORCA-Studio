@@ -38,6 +38,7 @@ import {
   RotateCcw,
   Wand2,
   Activity,
+  Zap,
   Blend,
   SkipBack,
   AlertCircle,
@@ -1590,6 +1591,7 @@ export default function App() {
   const [smoothProcessingProgress, setSmoothProcessingProgress] = useState<
     number | null
   >(null);
+  const [isSmoothOptionsExpanded, setIsSmoothOptionsExpanded] = useState(false);
   const [opticalFlowDiagnostics, setOpticalFlowDiagnostics] = useState<{
     clipId: string | null;
     decodedFramesCount?: number;
@@ -3456,7 +3458,7 @@ export default function App() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const handleSmoothSlowMo = async () => {
+  const handleSmoothSlowMo = async (mode: "dis" | "raft" = "dis") => {
     const currentClip = clips.find(c => c.id === selectedClipId);
     if (!currentClip || currentClip.type !== "video") return;
 
@@ -3478,11 +3480,13 @@ export default function App() {
     if (smoothProcessingProgress !== null) return;
     setSmoothProcessingProgress(0);
 
+    const modeLabel = mode === "raft" ? "RAFT Quality" : "DIS Optical Flow";
+
     try {
       if (!currentClip.src) {
         throw new Error("No video source found.");
       }
-      setPillPopup({ message: "Applying Smooth Slow-mo...", progress: 0, type: 'loading' });
+      setPillPopup({ message: `Applying Smooth Slow-mo (${modeLabel})...`, progress: 0, type: 'loading' });
       
       let videoSource: string | Blob = currentClip.src;
       if (currentClip.fileId) {
@@ -3501,8 +3505,9 @@ export default function App() {
         videoSource,
         currentClip.speed || 1,
         (progress) => {
-          setPillPopup({ message: "Applying Smooth Slow-mo...", progress: Math.min(99, Math.round(progress)), type: 'loading' });
-        }
+          setPillPopup({ message: `Applying Smooth Slow-mo (${modeLabel})...`, progress: Math.min(99, Math.round(progress)), type: 'loading' });
+        },
+        mode
       );
 
       const { 
@@ -7177,206 +7182,135 @@ const renderEditor = () => (
                   >
                     {renderCopyPasteButtons("speed")}
                   </SpeedRulerControl>
-                  <div className="flex gap-1.5 pb-2">
-                    <button
-                      onClick={async () => {
-                        const currentClip = clips.find(
-                          (c) => c.id === selectedClipId,
-                        );
-                        if (!currentClip || currentClip.type !== "video") return;
+                  <div className="flex gap-1.5 pb-2 relative">
+                    <div className="relative flex-1">
+                      <AnimatePresence>
+                        {isSmoothOptionsExpanded && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                            transition={{ duration: 0.18, ease: "easeOut" }}
+                            className="absolute bottom-full mb-2 left-0 right-0 z-50 bg-zinc-900/95 backdrop-blur-xl border border-indigo-500/30 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1.5 min-w-[150px]"
+                          >
+                            <div className="text-[8.5px] font-bold tracking-wider text-indigo-300 uppercase px-1 pt-0.5 pb-1 border-b border-white/10 flex justify-between items-center">
+                              <span>Smooth Slow-mo Mode</span>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setIsSmoothOptionsExpanded(false);
+                                }}
+                                className="text-zinc-400 hover:text-white p-0.5"
+                              >
+                                <X size={10} />
+                              </button>
+                            </div>
 
-                        const isOpticalFlowApplied =
-                          currentClip?.opticalFlow || false;
-
-                        if (isOpticalFlowApplied) {
-                          // Toggle off
-                          if (selectedClipId) {
-                            setClips((prev) =>
-                              prev.map((c) =>
-                                c.id === selectedClipId
-                                  ? { ...c, opticalFlow: false, src: c.originalSrc || c.src }
-                                  : c,
-                              ),
-                            );
-                          }
-                          return;
-                        }
-
-                        if (smoothProcessingProgress !== null) return;
-                        setSmoothProcessingProgress(0);
-
-                        try {
-                          setPillPopup({ message: "Applying Smooth Slow-mo...", progress: 0, type: 'loading' });
-                          
-                          let videoSource: string | Blob = currentClip.src;
-                          if (currentClip.fileId) {
-                            try {
-                              const { getFile } = await import("./lib/db");
-                              const cachedBlob = await getFile(currentClip.fileId);
-                              if (cachedBlob) {
-                                videoSource = cachedBlob;
-                              }
-                            } catch (dbErr) {
-                              console.warn("Could not retrieve file from IndexedDB:", dbErr);
-                            }
-                          }
-
-                           const decodeResult = await processSmoothSlowMoBrowser(
-                            videoSource,
-                            currentClip.speed || 1,
-                            (progress) => {
-                              const pVal = Math.min(99, Math.round(progress));
-                              setSmoothProcessingProgress(pVal);
-                              setPillPopup({ message: "Applying Smooth Slow-mo...", progress: pVal, type: 'loading' });
-                            }
-                          );
-
-                          const { 
-                            url: newSrcUrl, 
-                            fileId: newFileId, 
-                            decodedFramesCount, 
-                            flowComputedCount, 
-                            timestampsVerified,
-                            avgFlowMagnitude,
-                            maxFlowMagnitude,
-                            flowVisualization,
-                            isFlowCorrect,
-                            interpolatedFramesCount,
-                            averagePsnr,
-                            averageWarpError,
-                            interpolationVisualization,
-                            totalExportTimeMs,
-                            decoderTimeMs,
-                            opticalFlowTimeMs,
-                            interpolationTimeMs,
-                            colorConversionTimeMs,
-                            encoderTimeMs,
-                            decoderPct,
-                            opticalFlowPct,
-                            interpolationPct,
-                            colorConversionPct,
-                            encoderPct,
-                            decoderMsPerFrame,
-                            opticalFlowMsPerFrame,
-                            interpolationMsPerFrame,
-                            colorConversionMsPerFrame,
-                            encoderMsPerFrame,
-                            matAllocations,
-                            byteBufferAllocations,
-                            frameCopies
-                          } = decodeResult;
-
-                          setOpticalFlowDiagnostics({
-                            clipId: selectedClipId,
-                            decodedFramesCount,
-                            flowComputedCount,
-                            timestampsVerified,
-                            avgFlowMagnitude,
-                            maxFlowMagnitude,
-                            flowVisualization,
-                            isFlowCorrect,
-                            interpolatedFramesCount,
-                            averagePsnr,
-                            averageWarpError,
-                            interpolationVisualization,
-                            totalExportTimeMs,
-                            decoderTimeMs,
-                            opticalFlowTimeMs,
-                            interpolationTimeMs,
-                            colorConversionTimeMs,
-                            encoderTimeMs,
-                            decoderPct,
-                            opticalFlowPct,
-                            interpolationPct,
-                            colorConversionPct,
-                            encoderPct,
-                            decoderMsPerFrame,
-                            opticalFlowMsPerFrame,
-                            interpolationMsPerFrame,
-                            colorConversionMsPerFrame,
-                            encoderMsPerFrame,
-                            matAllocations,
-                            byteBufferAllocations,
-                            frameCopies
-                          });
-
-                          setSmoothProcessingProgress(100);
-                          if (decodedFramesCount !== undefined) {
-                            const flowMsg = flowComputedCount !== undefined ? `, ${flowComputedCount} DIS flows computed` : '';
-                            setPillPopup({ 
-                              message: `Slow-mo: ${decodedFramesCount} frames (${timestampsVerified ? "Verified TS" : "Non-monotonic TS!"})${flowMsg}`, 
-                              type: 'info' 
-                            });
-                          } else {
-                            setPillPopup({ message: "Smooth Slow-mo Applied", type: 'info' });
-                          }
-
-                          if (selectedClipId) {
-                            setClips((prev) =>
-                              prev.map((c) =>
-                                c.id === selectedClipId
-                                  ? { ...c, opticalFlow: true, originalSrc: c.originalSrc || c.src, src: newSrcUrl, fileId: newFileId }
-                                  : c,
-                              ),
-                            );
-                          }
-
-                          setTimeout(() => {
-                            setSmoothProcessingProgress(null);
-                            setPillPopup(null);
-                          }, 2000);
-                        } catch (err: any) {
-                          console.error(err);
-                          setPillPopup({ message: `Failed: ${err.message || 'unknown error'}`, type: 'info' });
-                          setTimeout(() => {
-                            setPillPopup(null);
-                          }, 5000);
-                          setSmoothProcessingProgress(null);
-                        }
-                      }}
-                      className={`flex-1 flex justify-center items-center gap-1 px-2 py-1 relative rounded-lg transition-colors active:scale-95 overflow-hidden ${clips.find((c) => c.id === selectedClipId)?.opticalFlow ? "bg-indigo-600 hover:bg-indigo-500" : "bg-zinc-800 hover:bg-zinc-700"}`}
-                    >
-                      {smoothProcessingProgress !== null ? (
-                        <>
-                          <div className="relative w-3 h-3 flex items-center justify-center shrink-0">
-                            <svg
-                              className="w-full h-full -rotate-90"
-                              viewBox="0 0 16 16"
+                            {/* 1st: Fast Process */}
+                            <button
+                              onClick={() => {
+                                setIsSmoothOptionsExpanded(false);
+                                handleSmoothSlowMo("dis");
+                              }}
+                              className="flex flex-col text-left px-2 py-1.5 rounded-lg bg-zinc-800/80 hover:bg-indigo-600/30 hover:border-indigo-400/40 border border-white/5 transition-all group active:scale-95 cursor-pointer"
                             >
-                              <circle
-                                cx="8"
-                                cy="8"
-                                r="6"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                fill="none"
-                                className="text-zinc-600"
-                              />
-                              <circle
-                                cx="8"
-                                cy="8"
-                                r="6"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                fill="none"
-                                className="text-white transition-all duration-150 ease-linear"
-                                strokeDasharray="37.7"
-                                strokeDashoffset={
-                                  37.7 - (smoothProcessingProgress / 100) * 37.7
-                                }
-                              />
-                            </svg>
-                          </div>
-                          <span className="text-[9.5px] font-mono text-white whitespace-nowrap">
-                            {Math.round(smoothProcessingProgress)}%
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-white group-hover:text-indigo-200">
+                                <Zap size={13} className="text-amber-400" />
+                                <span>Fast Process</span>
+                              </div>
+                              <span className="text-[8px] font-medium text-zinc-400 group-hover:text-indigo-300 mt-0.5">
+                                DIS Optical Flow
+                              </span>
+                            </button>
+
+                            {/* 2nd: Quality */}
+                            <button
+                              onClick={() => {
+                                setIsSmoothOptionsExpanded(false);
+                                handleSmoothSlowMo("raft");
+                              }}
+                              className="flex flex-col text-left px-2 py-1.5 rounded-lg bg-zinc-800/80 hover:bg-indigo-600/30 hover:border-indigo-400/40 border border-white/5 transition-all group active:scale-95 cursor-pointer"
+                            >
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-white group-hover:text-indigo-200">
+                                <Sparkles size={13} className="text-purple-400" />
+                                <span>Quality</span>
+                              </div>
+                              <span className="text-[8px] font-medium text-zinc-400 group-hover:text-indigo-300 mt-0.5">
+                                RAFT Smooth Slowmo
+                              </span>
+                            </button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      <button
+                        onClick={() => {
+                          const currentClip = clips.find(
+                            (c) => c.id === selectedClipId,
+                          );
+                          if (!currentClip || currentClip.type !== "video") return;
+
+                          const isOpticalFlowApplied =
+                            currentClip?.opticalFlow || false;
+
+                          if (isOpticalFlowApplied) {
+                            handleSmoothSlowMo("dis");
+                          } else if (smoothProcessingProgress !== null) {
+                            return;
+                          } else {
+                            setIsSmoothOptionsExpanded((prev) => !prev);
+                          }
+                        }}
+                        className={`w-full flex justify-center items-center gap-1 px-2 py-1 relative rounded-lg transition-colors active:scale-95 overflow-hidden ${
+                          clips.find((c) => c.id === selectedClipId)?.opticalFlow
+                            ? "bg-indigo-600 hover:bg-indigo-500 text-white"
+                            : isSmoothOptionsExpanded
+                            ? "bg-indigo-900/60 border border-indigo-500/50 text-indigo-200"
+                            : "bg-zinc-800 hover:bg-zinc-700 text-white"
+                        }`}
+                      >
+                        {smoothProcessingProgress !== null ? (
+                          <>
+                            <div className="relative w-3 h-3 flex items-center justify-center shrink-0">
+                              <svg
+                                className="w-full h-full -rotate-90"
+                                viewBox="0 0 16 16"
+                              >
+                                <circle
+                                  cx="8"
+                                  cy="8"
+                                  r="6"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  fill="none"
+                                  className="text-zinc-600"
+                                />
+                                <circle
+                                  cx="8"
+                                  cy="8"
+                                  r="6"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  fill="none"
+                                  className="text-white transition-all duration-150 ease-linear"
+                                  strokeDasharray="37.7"
+                                  strokeDashoffset={
+                                    37.7 - (smoothProcessingProgress / 100) * 37.7
+                                  }
+                                />
+                              </svg>
+                            </div>
+                            <span className="text-[9.5px] font-mono text-white whitespace-nowrap">
+                              {Math.round(smoothProcessingProgress)}%
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-[9.5px] font-semibold text-white truncate">
+                            Smooth
                           </span>
-                        </>
-                      ) : (
-                        <span className="text-[9.5px] font-semibold text-white truncate">
-                          Smooth
-                        </span>
-                      )}
-                    </button>
+                        )}
+                      </button>
+                    </div>
                     <button
                       onClick={() => setActiveExpandedMenu("speed-curves")}
                       className="flex-1 flex justify-center items-center gap-1 px-2 py-1 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors active:scale-95"
@@ -7597,7 +7531,10 @@ const renderEditor = () => (
                   transition={{ duration: 0.2 }}
                   className="flex flex-col w-full h-auto px-1 pt-0 pb-1"
                 >
-                  <SpeedCurveEditor onClose={() => setActiveExpandedMenu("speed")} />
+                  <SpeedCurveEditor 
+                    onClose={() => setActiveExpandedMenu("speed")} 
+                    onSmoothSlowMo={(mode) => handleSmoothSlowMo(mode)}
+                  />
                 </motion.div>
               )}
               {activeExpandedMenu === "text" && (

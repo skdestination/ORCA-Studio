@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, MouseEvent as ReactMouseEvent } from 'react';
-import { motion } from 'motion/react';
-import { Play, Minus, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Play, Minus, Check, Zap, Sparkles, X } from 'lucide-react';
 
 interface Point {
   id: string;
@@ -10,9 +10,11 @@ interface Point {
 
 interface SpeedCurveEditorProps {
   onClose: () => void;
+  onSmoothSlowMo?: (mode: "dis" | "raft") => void;
 }
 
-export const SpeedCurveEditor: React.FC<SpeedCurveEditorProps> = ({ onClose }) => {
+export const SpeedCurveEditor: React.FC<SpeedCurveEditorProps> = ({ onClose, onSmoothSlowMo }) => {
+  const [isSmoothExpanded, setIsSmoothExpanded] = useState(false);
   const [points, setPoints] = useState<Point[]>([
     { id: '1', x: 0, y: 0.5 },
     { id: '2', x: 0.25, y: 0.5 },
@@ -225,8 +227,65 @@ export const SpeedCurveEditor: React.FC<SpeedCurveEditorProps> = ({ onClose }) =
         </div>
         
         {/* Footer Actions */}
-        <div className="flex justify-center pb-0.5">
-          <button className="bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-300 hover:text-white px-2.5 py-1 rounded-lg text-[9px] font-bold tracking-wide uppercase transition-all duration-200 cursor-pointer">
+        <div className="flex justify-center pb-0.5 relative">
+          <AnimatePresence>
+            {isSmoothExpanded && (
+              <motion.div
+                initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="absolute bottom-full mb-2 z-50 bg-zinc-900/95 backdrop-blur-xl border border-indigo-500/30 rounded-xl p-1.5 shadow-2xl flex flex-col gap-1.5 min-w-[160px]"
+              >
+                <div className="text-[8.5px] font-bold tracking-wider text-indigo-300 uppercase px-1 pt-0.5 pb-1 border-b border-white/10 flex justify-between items-center">
+                  <span>Smooth Slow-mo Mode</span>
+                  <button
+                    onClick={() => setIsSmoothExpanded(false)}
+                    className="text-zinc-400 hover:text-white p-0.5"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setIsSmoothExpanded(false);
+                    onSmoothSlowMo?.("dis");
+                  }}
+                  className="flex flex-col text-left px-2 py-1.5 rounded-lg bg-zinc-800/80 hover:bg-indigo-600/30 hover:border-indigo-400/40 border border-white/5 transition-all group active:scale-95 cursor-pointer"
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-white group-hover:text-indigo-200">
+                    <Zap size={13} className="text-amber-400" />
+                    <span>Fast Process</span>
+                  </div>
+                  <span className="text-[8px] font-medium text-zinc-400 group-hover:text-indigo-300 mt-0.5">
+                    DIS Optical Flow
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsSmoothExpanded(false);
+                    onSmoothSlowMo?.("raft");
+                  }}
+                  className="flex flex-col text-left px-2 py-1.5 rounded-lg bg-zinc-800/80 hover:bg-indigo-600/30 hover:border-indigo-400/40 border border-white/5 transition-all group active:scale-95 cursor-pointer"
+                >
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-white group-hover:text-indigo-200">
+                    <Sparkles size={13} className="text-purple-400" />
+                    <span>Quality</span>
+                  </div>
+                  <span className="text-[8px] font-medium text-zinc-400 group-hover:text-indigo-300 mt-0.5">
+                    RAFT Smooth Slowmo
+                  </span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <button
+            onClick={() => setIsSmoothExpanded((prev) => !prev)}
+            className="bg-white/5 hover:bg-white/10 border border-white/5 text-zinc-300 hover:text-white px-2.5 py-1 rounded-lg text-[9px] font-bold tracking-wide uppercase transition-all duration-200 cursor-pointer active:scale-95"
+          >
             Smooth slow-mo
           </button>
         </div>
