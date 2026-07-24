@@ -25,13 +25,20 @@ class TimelineGestureHandler(
     private var velocityTracker: VelocityTracker? = null
 
     enum class TouchMode {
-        NONE, SCRUBBING, DRAGGING, SCROLLING
+        NONE, SCRUBBING, DRAGGING, SCROLLING, MARQUEE_SELECT
     }
 
     var touchMode = TouchMode.NONE
     var draggedClipId: String? = null
     var dragStartLeft = 0.0
     var dragStartLayerId: String? = null
+
+    // Marquee Multi-Select Variables
+    var isMarqueeActive: Boolean = false
+    var marqueeStartX: Float = 0f
+    var marqueeStartY: Float = 0f
+    var marqueeCurrentX: Float = 0f
+    var marqueeCurrentY: Float = 0f
 
     private var lastTouchX = 0f
     private var lastTouchY = 0f
@@ -190,6 +197,40 @@ class TimelineGestureHandler(
                         lastTouchY = y
                         view.invalidate()
                     }
+                    TouchMode.MARQUEE_SELECT -> {
+                        marqueeCurrentX = x
+                        marqueeCurrentY = y
+                        
+                        val marqueeRect = android.graphics.RectF(
+                            kotlin.math.min(marqueeStartX, marqueeCurrentX),
+                            kotlin.math.min(marqueeStartY, marqueeCurrentY),
+                            kotlin.math.max(marqueeStartX, marqueeCurrentX),
+                            kotlin.math.max(marqueeStartY, marqueeCurrentY)
+                        )
+                        
+                        val pps = engine.pixelsPerSecond
+                        val sortedLayers = engine.getAllLayers()
+                        val trackHeight = renderer.trackHeight
+                        val trackSpacing = renderer.trackSpacing
+                        val headerHeight = renderer.headerHeight
+                        
+                        engine.selectedClipIds.clear()
+                        for (clip in engine.getAllClips()) {
+                            val layerIndex = sortedLayers.indexOfFirst { it.id == clip.layerId }
+                            if (layerIndex == -1) continue
+                            
+                            val leftX = (clip.leftSeconds * pps - viewport.scrollX).toFloat()
+                            val rightX = leftX + (clip.durationSeconds * pps).toFloat()
+                            val topY = headerHeight + layerIndex * (trackHeight + trackSpacing) - viewport.scrollY.toFloat()
+                            val bottomY = topY + trackHeight
+                            
+                            val clipRect = android.graphics.RectF(leftX, topY, rightX, bottomY)
+                            if (android.graphics.RectF.intersects(marqueeRect, clipRect)) {
+                                engine.selectedClipIds.add(clip.id)
+                            }
+                        }
+                        view.invalidate()
+                    }
                     else -> {}
                 }
             }
@@ -197,6 +238,12 @@ class TimelineGestureHandler(
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 dragHoldHandler.removeCallbacks(dragHoldRunnable)
                 autoScrollHandler.removeCallbacks(autoScrollRunnable)
+
+                if (touchMode == TouchMode.MARQUEE_SELECT) {
+                    isMarqueeActive = false
+                    touchMode = TouchMode.NONE
+                    view.invalidate()
+                }
 
                 if (isReturning) {
                     return true
@@ -536,7 +583,26 @@ class TimelineGestureHandler(
         return false
     }
 
-    override fun onLongPress(e: MotionEvent) {}
+    override fun onLongPress(e: MotionEvent) {
+        val x = e.x
+        val y = e.y
+        if (y >= renderer.headerHeight) {
+            val hitClip = hitTestClip(x, y)
+            if (hitClip == null) {
+                view.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+                
+                touchMode = TouchMode.MARQUEE_SELECT
+                isMarqueeActive = true
+                marqueeStartX = x
+                marqueeStartY = y
+                marqueeCurrentX = x
+                marqueeCurrentY = y
+                
+                engine.selectedClipIds.clear()
+                view.invalidate()
+            }
+        }
+    }
 
     override fun onScale(detector: ScaleGestureDetector): Boolean {
         val oldPps = engine.pixelsPerSecond

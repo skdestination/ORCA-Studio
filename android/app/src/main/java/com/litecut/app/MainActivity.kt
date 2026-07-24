@@ -3,6 +3,7 @@ package com.litecut.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
@@ -18,6 +19,9 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // Initialize the splash screen transition before super.onCreate()
         installSplashScreen()
+
+        // Enable edge-to-edge screen rendering
+        enableEdgeToEdge()
 
         // Ensure central OrcaEngine singleton instance is retrieved on startup
         com.litecut.app.timeline.OrcaEngine.getInstance()

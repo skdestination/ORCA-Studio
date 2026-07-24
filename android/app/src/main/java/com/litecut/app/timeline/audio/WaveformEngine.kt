@@ -72,10 +72,10 @@ class WaveformEngine private constructor(val context: Context) {
      */
     fun getTrackColor(type: AudioTrackType): Int {
         return when (type) {
-            AudioTrackType.MUSIC -> 0xFF9061F9.toInt()    // Purple
-            AudioTrackType.VOICE -> 0xFF06B6D4.toInt()    // Cyan
-            AudioTrackType.SFX -> 0xFFF97316.toInt()      // Orange
-            AudioTrackType.AMBIENT -> 0xFF10B981.toInt()  // Green
+            AudioTrackType.MUSIC -> 0xFFA855F7.toInt()    // Primary Violet #a855f7
+            AudioTrackType.VOICE -> 0xFFC084FC.toInt()    // Light Purple #c084fc
+            AudioTrackType.SFX -> 0xFFD8B4FE.toInt()      // Soft Purple #d8b4fe
+            AudioTrackType.AMBIENT -> 0xFF818CF8.toInt()  // Indigo Purple #818cf8
         }
     }
 

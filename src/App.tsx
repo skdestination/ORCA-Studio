@@ -76,7 +76,7 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 import { Capacitor } from "@capacitor/core";
 import { App as CapApp } from "@capacitor/app";
-import { StatusBar } from "@capacitor/status-bar";
+import { StatusBar, Style } from "@capacitor/status-bar";
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Media } from "@capacitor-community/media";
 import { processSmoothSlowMoBrowser } from "./lib/opticalFlow";
@@ -2832,11 +2832,21 @@ export default function App() {
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
-      StatusBar.hide().catch((err) => {
-        console.warn("Failed to hide StatusBar:", err);
+      StatusBar.setOverlaysWebView({ overlay: true }).catch((err) => {
+        console.warn("Failed to setOverlaysWebView:", err);
       });
+      StatusBar.setStyle({ style: Style.Dark }).catch((err) => {
+        console.warn("Failed to setStyle:", err);
+      });
+
+      if (currentScreen === "editor") {
+        // Hide status bar in editor for immersive native editing
+        StatusBar.hide().catch(() => {});
+      } else {
+        StatusBar.show().catch(() => {});
+      }
     }
-  }, []);
+  }, [currentScreen]);
 
   const createProject = (ratio: string) => {
     const newProjectId = Math.random().toString(36).substring(2, 9);

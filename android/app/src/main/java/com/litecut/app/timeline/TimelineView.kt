@@ -31,6 +31,12 @@ class TimelineView @JvmOverloads constructor(
     val proposedLeftSeconds: Double get() = gestureHandler.proposedLeftSeconds
     val isCollision: Boolean get() = gestureHandler.isCollision
 
+    val isMarqueeActive: Boolean get() = gestureHandler.isMarqueeActive
+    val marqueeStartX: Float get() = gestureHandler.marqueeStartX
+    val marqueeStartY: Float get() = gestureHandler.marqueeStartY
+    val marqueeCurrentX: Float get() = gestureHandler.marqueeCurrentX
+    val marqueeCurrentY: Float get() = gestureHandler.marqueeCurrentY
+
     init {
         // Enforce hardware acceleration layer for high-performance canvas rendering
         setLayerType(LAYER_TYPE_HARDWARE, null)

@@ -246,6 +246,77 @@ class TimelineRenderer {
                 canvas.drawRoundRect(tempRect, clipCornerRadius, clipCornerRadius, selectionBorderPaint)
             }
 
+            // Keyframe Polyline Slope Overlay
+            val keyframeArray = clip.additionalProperties["keyframes"] as? org.json.JSONArray
+            if (keyframeArray != null && keyframeArray.length() > 0) {
+                val keyframes = ArrayList<Keyframe>()
+                for (i in 0 until keyframeArray.length()) {
+                    val kfObj = keyframeArray.optJSONObject(i) ?: continue
+                    try {
+                        keyframes.add(Keyframe.fromJSONObject(kfObj))
+                    } catch (e: Exception) {}
+                }
+                
+                if (keyframes.isNotEmpty()) {
+                    keyframes.sortBy { it.timeOffset }
+                    val curvePath = Path()
+                    val clipHeight = trackHeight - 12f
+                    val clipBottomMargin = clipBottom - 6f
+                    
+                    var isFirst = true
+                    for (kf in keyframes) {
+                        val kfX = leftX + (kf.timeOffset * pps).toFloat()
+                        val normVal = (kf.value.coerceIn(0.0, 2.0) / 2.0).toFloat()
+                        val kfY = clipBottomMargin - (normVal * clipHeight)
+                        
+                        if (isFirst) {
+                            curvePath.moveTo(kfX, kfY)
+                            isFirst = false
+                        } else {
+                            curvePath.lineTo(kfX, kfY)
+                        }
+                    }
+                    
+                    val slopeLinePaint = Paint().apply {
+                        style = Paint.Style.STROKE
+                        strokeWidth = 3f
+                        color = 0xFF818CF8.toInt()
+                        isAntiAlias = true
+                    }
+                    canvas.drawPath(curvePath, slopeLinePaint)
+                    
+                    val diamondPaint = Paint().apply {
+                        style = Paint.Style.FILL
+                        color = 0xFFFFFFFF.toInt()
+                        isAntiAlias = true
+                    }
+                    val diamondBorderPaint = Paint().apply {
+                        style = Paint.Style.STROKE
+                        strokeWidth = 2f
+                        color = 0xFF6366F1.toInt()
+                        isAntiAlias = true
+                    }
+                    val diamondPath = Path()
+                    val kfRadius = 6f
+                    
+                    for (kf in keyframes) {
+                        val kfX = leftX + (kf.timeOffset * pps).toFloat()
+                        val normVal = (kf.value.coerceIn(0.0, 2.0) / 2.0).toFloat()
+                        val kfY = clipBottomMargin - (normVal * clipHeight)
+                        
+                        diamondPath.reset()
+                        diamondPath.moveTo(kfX, kfY - kfRadius)
+                        diamondPath.lineTo(kfX + kfRadius, kfY)
+                        diamondPath.lineTo(kfX, kfY + kfRadius)
+                        diamondPath.lineTo(kfX - kfRadius, kfY)
+                        diamondPath.close()
+                        
+                        canvas.drawPath(diamondPath, diamondPaint)
+                        canvas.drawPath(diamondPath, diamondBorderPaint)
+                    }
+                }
+            }
+
             // Draw clip name (ensure bounds checking for text)
             val clipName = clip.name ?: clip.type.name
             textPaint.getTextBounds(clipName, 0, clipName.length, tempTextBounds)
@@ -488,6 +559,34 @@ class TimelineRenderer {
             playheadPath.lineTo(playheadX - 15f, headerHeight * 0.6f)
             playheadPath.close()
             canvas.drawPath(playheadPath, playheadHeadPaint)
+        }
+
+        // 6. Draw Marquee Selection Box Overlay
+        if (view.isMarqueeActive) {
+            val startX = view.marqueeStartX
+            val startY = view.marqueeStartY
+            val currentX = view.marqueeCurrentX
+            val currentY = view.marqueeCurrentY
+            
+            val marqueeRect = RectF(
+                kotlin.math.min(startX, currentX),
+                kotlin.math.min(startY, currentY),
+                kotlin.math.max(startX, currentX),
+                kotlin.math.max(startY, currentY)
+            )
+            
+            val fillPaint = Paint().apply {
+                style = Paint.Style.FILL
+                color = 0x336366F1.toInt() // 20% Indigo opacity fill
+            }
+            val borderPaint = Paint().apply {
+                style = Paint.Style.STROKE
+                strokeWidth = 2f
+                color = 0xFF818CF8.toInt() // Vibrant Indigo
+                pathEffect = android.graphics.DashPathEffect(floatArrayOf(10f, 10f), 0f)
+            }
+            canvas.drawRoundRect(marqueeRect, 8f, 8f, fillPaint)
+            canvas.drawRoundRect(marqueeRect, 8f, 8f, borderPaint)
         }
     }
 }

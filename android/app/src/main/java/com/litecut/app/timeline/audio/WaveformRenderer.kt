@@ -70,10 +70,10 @@ class WaveformRenderer {
 
     private fun getBrighterTrackColor(type: AudioTrackType): Int {
         return when (type) {
-            AudioTrackType.MUSIC -> 0xFFD8B4FE.toInt()    // Brighter Purple
-            AudioTrackType.VOICE -> 0xFF67E8F9.toInt()    // Brighter Cyan
-            AudioTrackType.SFX -> 0xFFFDBA74.toInt()      // Brighter Orange
-            AudioTrackType.AMBIENT -> 0xFF6EE7B7.toInt()  // Brighter Green
+            AudioTrackType.MUSIC -> 0xFFE9D5FF.toInt()    // Soft Lavender Outline
+            AudioTrackType.VOICE -> 0xFFF3E8FF.toInt()    // Light Violet Outline
+            AudioTrackType.SFX -> 0xFFFAE8FF.toInt()      // Bright Soft Purple Outline
+            AudioTrackType.AMBIENT -> 0xFFC7D2FE.toInt()  // Soft Indigo Outline
         }
     }
 
