@@ -42,15 +42,15 @@ fun FlowBarSubPanelContainer(
 
     Surface(
         modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)),
-        color = Color(0xFF141418),
+            .width(218.dp)
+            .clip(RoundedCornerShape(20.dp)),
+        color = Color(0xF50D0D12),
         tonalElevation = 8.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(12.dp)
         ) {
             // Panel Header
             Row(
@@ -61,43 +61,57 @@ fun FlowBarSubPanelContainer(
                 Text(
                     text = when (activeMenu) {
                         "adjust" -> "COLOR ADJUSTMENTS"
-                        "speed" -> "SPEED & CURVE EDITOR"
+                        "speed" -> "SPEED & CURVES"
                         "audio" -> "AUDIO & VOLUME"
-                        "voiceover" -> "VOICEOVER RECORDER"
+                        "volume" -> "VOLUME CONTROL"
+                        "voiceover" -> "VOICEOVER"
                         "text" -> "TEXT & TYPOGRAPHY"
-                        "crop" -> "CROP & ASPECT RATIO"
-                        "effects" -> "EFFECTS & FILTERS"
+                        "crop" -> "CROP & PRESETS"
+                        "effects" -> "EFFECTS"
+                        "move" -> "MOVE & TRANSFORM"
+                        "blend" -> "BLEND & OPACITY"
+                        "mask" -> "MASK SHAPES"
+                        "stabilize" -> "STABILIZATION"
+                        "motion" -> "MOTION BAR"
+                        "animation" -> "ANIMATION CURVES"
                         else -> "CONTROLS"
                     },
                     color = Color.White,
-                    fontSize = 12.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
 
                 IconButton(
                     onClick = onClose,
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(24.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close Panel",
-                        tint = Color(0xFFA1A1AA)
+                        tint = Color(0xFFA1A1AA),
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Sub Panel Content Router
             when (activeMenu) {
                 "adjust" -> AdjustmentControlPanel(selectedClip = selectedClip, onClipUpdate = onClipUpdate)
                 "speed" -> SpeedControlPanel(selectedClip = selectedClip, onClipUpdate = onClipUpdate)
-                "audio" -> AudioControlPanel(selectedClip = selectedClip, onClipUpdate = onClipUpdate)
+                "audio", "volume" -> AudioControlPanel(selectedClip = selectedClip, onClipUpdate = onClipUpdate)
                 "voiceover" -> VoiceoverRecorderPanel()
                 "text" -> TextEditorControlPanel(selectedClip = selectedClip, onClipUpdate = onClipUpdate)
                 "crop" -> CropControlPanel(selectedClip = selectedClip, onClipUpdate = onClipUpdate)
                 "effects" -> EffectsControlPanel(selectedClip = selectedClip, onClipUpdate = onClipUpdate)
+                "move" -> MoveTransformControlPanel(selectedClip = selectedClip, onClipUpdate = onClipUpdate)
+                "blend" -> BlendControlPanel(selectedClip = selectedClip, onClipUpdate = onClipUpdate)
+                "mask" -> MaskControlPanel(selectedClip = selectedClip, onClipUpdate = onClipUpdate)
+                "stabilize" -> StabilizeControlPanel(selectedClip = selectedClip, onClipUpdate = onClipUpdate)
+                "motion" -> MotionControlPanel(selectedClip = selectedClip, onClipUpdate = onClipUpdate)
+                "animation" -> AnimationControlPanel(selectedClip = selectedClip, onClipUpdate = onClipUpdate)
             }
         }
     }
@@ -113,7 +127,7 @@ fun AdjustmentControlPanel(
     var saturation by remember(selectedClip) { mutableStateOf(selectedClip?.saturation ?: 0f) }
     var temperature by remember(selectedClip) { mutableStateOf(selectedClip?.temperature ?: 0f) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         AdjustmentSlider("Brightness", brightness, -100f..100f) {
             brightness = it
             selectedClip?.let { clip ->
@@ -159,8 +173,8 @@ private fun AdjustmentSlider(
         Text(
             text = label,
             color = Color(0xFFD4D4D8),
-            fontSize = 12.sp,
-            modifier = Modifier.width(90.dp)
+            fontSize = 10.sp,
+            modifier = Modifier.width(70.dp)
         )
         Slider(
             value = value,
@@ -176,8 +190,8 @@ private fun AdjustmentSlider(
         Text(
             text = "${value.toInt()}",
             color = Color(0xFFA1A1AA),
-            fontSize = 12.sp,
-            modifier = Modifier.width(36.dp),
+            fontSize = 10.sp,
+            modifier = Modifier.width(28.dp),
             fontWeight = FontWeight.Medium
         )
     }
@@ -188,42 +202,41 @@ fun SpeedControlPanel(
     selectedClip: Clip?,
     onClipUpdate: (Clip) -> Unit
 ) {
-    var selectedMode by remember { mutableStateOf("normal") } // "normal" or "curve"
+    var selectedMode by remember { mutableStateOf("normal") }
     var speedMultiplier by remember(selectedClip) { mutableStateOf(selectedClip?.speed?.toFloat() ?: 1.0f) }
     var selectedCurvePreset by remember { mutableStateOf("None") }
 
     val curvePresets = listOf("None", "Hero", "Bullet Time", "Montage", "Flash", "Jump")
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // Mode Switcher
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(10.dp))
+                .clip(RoundedCornerShape(8.dp))
                 .background(Color(0xFF1E1E24))
-                .padding(4.dp)
+                .padding(2.dp)
         ) {
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(6.dp))
                     .background(if (selectedMode == "normal") Color(0xFF3F3F46) else Color.Transparent)
                     .clickable { selectedMode = "normal" }
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Normal Speed", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("Normal", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(6.dp))
                     .background(if (selectedMode == "curve") Color(0xFF3F3F46) else Color.Transparent)
                     .clickable { selectedMode = "curve" }
-                    .padding(vertical = 8.dp),
+                    .padding(vertical = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Speed Curve", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("Curves", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -232,7 +245,7 @@ fun SpeedControlPanel(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Speed: ${"%.1f".format(speedMultiplier)}x", color = Color.White, fontSize = 13.sp, modifier = Modifier.width(90.dp))
+                Text("Speed: ${"%.1f".format(speedMultiplier)}x", color = Color.White, fontSize = 10.sp, modifier = Modifier.width(70.dp))
                 Slider(
                     value = speedMultiplier,
                     onValueChange = {
@@ -251,23 +264,21 @@ fun SpeedControlPanel(
                 )
             }
         } else {
-            // Speed Curve Presets Row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 curvePresets.forEach { preset ->
                     val isSelected = selectedCurvePreset == preset
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(8.dp))
                             .background(if (isSelected) Color(0xFF6366F1) else Color(0xFF27272A))
                             .clickable {
                                 selectedCurvePreset = preset
                                 selectedClip?.let { clip ->
-                                    // Evaluate custom speed curve factor using BezierCurve evaluator
                                     val factor = when (preset) {
                                         "Hero" -> BezierCurve.evaluate(0.5, 0.12, 0.0, 0.39, 0.0) * 3.0 + 0.5
                                         "Bullet Time" -> BezierCurve.evaluate(0.5, 0.0, 1.0, 1.0, 0.0) * 0.2 + 0.1
@@ -280,12 +291,12 @@ fun SpeedControlPanel(
                                     onClipUpdate(clip.deepCopy(speed = factor))
                                 }
                             }
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                            .padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
                         Text(
                             text = preset,
                             color = Color.White,
-                            fontSize = 12.sp,
+                            fontSize = 10.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                         )
                     }
@@ -301,28 +312,12 @@ fun AudioControlPanel(
     onClipUpdate: (Clip) -> Unit
 ) {
     var volume by remember(selectedClip) { mutableStateOf((selectedClip?.volume ?: 1.0f) * 100f) }
-    var fadeIn by remember(selectedClip) { mutableStateOf((selectedClip?.additionalProperties?.get("fadeIn") as? Number)?.toFloat() ?: 0f) }
-    var fadeOut by remember(selectedClip) { mutableStateOf((selectedClip?.additionalProperties?.get("fadeOut") as? Number)?.toFloat() ?: 0f) }
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         AdjustmentSlider("Volume", volume, 0f..200f) {
             volume = it
             selectedClip?.let { clip ->
                 clip.volume = it / 100f
-                onClipUpdate(clip)
-            }
-        }
-        AdjustmentSlider("Fade In (s)", fadeIn, 0f..5f) {
-            fadeIn = it
-            selectedClip?.let { clip ->
-                clip.additionalProperties["fadeIn"] = it
-                onClipUpdate(clip)
-            }
-        }
-        AdjustmentSlider("Fade Out (s)", fadeOut, 0f..5f) {
-            fadeOut = it
-            selectedClip?.let { clip ->
-                clip.additionalProperties["fadeOut"] = it
                 onClipUpdate(clip)
             }
         }
@@ -336,18 +331,18 @@ fun VoiceoverRecorderPanel() {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
-            text = if (isRecording) "RECORDING VOICE OVER..." else "Tap to start recording voiceover",
+            text = if (isRecording) "RECORDING..." else "Tap mic to start",
             color = if (isRecording) Color(0xFFEF4444) else Color(0xFFA1A1AA),
-            fontSize = 12.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold
         )
 
         Box(
             modifier = Modifier
-                .size(64.dp)
+                .size(48.dp)
                 .clip(CircleShape)
                 .background(if (isRecording) Color(0xFFEF4444) else Color(0xFF6366F1))
                 .clickable { isRecording = !isRecording },
@@ -357,7 +352,7 @@ fun VoiceoverRecorderPanel() {
                 imageVector = if (isRecording) Icons.Default.Stop else Icons.Default.Mic,
                 contentDescription = "Voiceover",
                 tint = Color.White,
-                modifier = Modifier.size(32.dp)
+                modifier = Modifier.size(24.dp)
             )
         }
     }
@@ -370,7 +365,7 @@ fun TextEditorControlPanel(
 ) {
     var textInput by remember(selectedClip) { mutableStateOf(selectedClip?.text ?: "Sample Text") }
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         OutlinedTextField(
             value = textInput,
             onValueChange = {
@@ -380,7 +375,7 @@ fun TextEditorControlPanel(
                     onClipUpdate(clip)
                 }
             },
-            label = { Text("Overlay Text Content", color = Color(0xFFA1A1AA)) },
+            label = { Text("Overlay Text", color = Color(0xFFA1A1AA), fontSize = 10.sp) },
             modifier = Modifier.fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color(0xFF6366F1),
@@ -397,20 +392,18 @@ fun CropControlPanel(
     selectedClip: Clip?,
     onClipUpdate: (Clip) -> Unit
 ) {
-    val ratios = listOf("16:9", "9:16", "1:1", "4:5", "21:9", "Free")
-    var selectedRatio by remember(selectedClip) { mutableStateOf((selectedClip?.additionalProperties?.get("cropRatio") as? String) ?: "9:16") }
+    val ratios = listOf("Free", "1:1", "16:9", "9:16")
+    var selectedRatio by remember(selectedClip) { mutableStateOf((selectedClip?.additionalProperties?.get("cropRatio") as? String) ?: "Free") }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         ratios.forEach { ratio ->
             val isSelected = selectedRatio == ratio
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(10.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .background(if (isSelected) Color(0xFF6366F1) else Color(0xFF27272A))
                     .clickable {
                         selectedRatio = ratio
@@ -419,12 +412,12 @@ fun CropControlPanel(
                             onClipUpdate(clip)
                         }
                     }
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
             ) {
                 Text(
                     text = ratio,
                     color = Color.White,
-                    fontSize = 12.sp,
+                    fontSize = 10.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                 )
             }
@@ -437,20 +430,18 @@ fun EffectsControlPanel(
     selectedClip: Clip?,
     onClipUpdate: (Clip) -> Unit
 ) {
-    val effects = listOf("Smooth Slow-Mo (RAFT)", "DIS Flow", "AI Color Pop", "Glow Filter", "Retro Film")
-    var selectedEffect by remember(selectedClip) { mutableStateOf((selectedClip?.additionalProperties?.get("activeEffect") as? String) ?: "Smooth Slow-Mo (RAFT)") }
+    val effects = listOf("Slow-Mo", "DIS Flow", "Color Pop", "Glow")
+    var selectedEffect by remember(selectedClip) { mutableStateOf((selectedClip?.additionalProperties?.get("activeEffect") as? String) ?: "Slow-Mo") }
 
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
         effects.forEach { effect ->
             val isSelected = selectedEffect == effect
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(8.dp))
                     .background(if (isSelected) Color(0xFFA855F7) else Color(0xFF27272A))
                     .clickable {
                         selectedEffect = effect
@@ -459,12 +450,12 @@ fun EffectsControlPanel(
                             onClipUpdate(clip)
                         }
                     }
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
                 Text(
                     text = effect,
                     color = Color.White,
-                    fontSize = 12.sp,
+                    fontSize = 10.sp,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                 )
             }
@@ -472,3 +463,153 @@ fun EffectsControlPanel(
     }
 }
 
+@Composable
+fun MoveTransformControlPanel(
+    selectedClip: Clip?,
+    onClipUpdate: (Clip) -> Unit
+) {
+    var scale by remember(selectedClip) { mutableStateOf((selectedClip?.additionalProperties?.get("scale") as? Number)?.toFloat() ?: 1.0f) }
+    var rotation by remember(selectedClip) { mutableStateOf((selectedClip?.additionalProperties?.get("rotation") as? Number)?.toFloat() ?: 0.0f) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AdjustmentSlider("Scale", scale * 100f, 10f..300f) {
+            scale = it / 100f
+            selectedClip?.let { clip ->
+                clip.additionalProperties["scale"] = scale
+                onClipUpdate(clip)
+            }
+        }
+        AdjustmentSlider("Rotation", rotation, -180f..180f) {
+            rotation = it
+            selectedClip?.let { clip ->
+                clip.additionalProperties["rotation"] = rotation
+                onClipUpdate(clip)
+            }
+        }
+    }
+}
+
+@Composable
+fun BlendControlPanel(
+    selectedClip: Clip?,
+    onClipUpdate: (Clip) -> Unit
+) {
+    var opacity by remember(selectedClip) { mutableStateOf((selectedClip?.additionalProperties?.get("opacity") as? Number)?.toFloat() ?: 1.0f) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AdjustmentSlider("Opacity", opacity * 100f, 0f..100f) {
+            opacity = it / 100f
+            selectedClip?.let { clip ->
+                clip.additionalProperties["opacity"] = opacity
+                onClipUpdate(clip)
+            }
+        }
+    }
+}
+
+@Composable
+fun MaskControlPanel(
+    selectedClip: Clip?,
+    onClipUpdate: (Clip) -> Unit
+) {
+    val masks = listOf("None", "Circle", "Square", "Half")
+    var selectedMask by remember(selectedClip) { mutableStateOf((selectedClip?.additionalProperties?.get("mask") as? String) ?: "None") }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        masks.forEach { mask ->
+            val isSelected = selectedMask == mask
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isSelected) Color(0xFF6366F1) else Color(0xFF27272A))
+                    .clickable {
+                        selectedMask = mask
+                        selectedClip?.let { clip ->
+                            clip.additionalProperties["mask"] = mask
+                            onClipUpdate(clip)
+                        }
+                    }
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = mask,
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun StabilizeControlPanel(
+    selectedClip: Clip?,
+    onClipUpdate: (Clip) -> Unit
+) {
+    var level by remember(selectedClip) { mutableStateOf((selectedClip?.additionalProperties?.get("stabilizeLevel") as? Number)?.toFloat() ?: 50f) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        AdjustmentSlider("Smoothness", level, 0f..100f) {
+            level = it
+            selectedClip?.let { clip ->
+                clip.additionalProperties["stabilizeLevel"] = level
+                onClipUpdate(clip)
+            }
+        }
+    }
+}
+
+@Composable
+fun MotionControlPanel(
+    selectedClip: Clip?,
+    onClipUpdate: (Clip) -> Unit
+) {
+    Text(
+        text = "Keyframe motion tracking active",
+        color = Color(0xFFA5B4FC),
+        fontSize = 10.sp,
+        fontWeight = FontWeight.SemiBold
+    )
+}
+
+@Composable
+fun AnimationControlPanel(
+    selectedClip: Clip?,
+    onClipUpdate: (Clip) -> Unit
+) {
+    val curves = listOf("Linear", "Ease In", "Ease Out", "In Out")
+    var selectedCurve by remember(selectedClip) { mutableStateOf((selectedClip?.additionalProperties?.get("curve") as? String) ?: "Linear") }
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        curves.forEach { curve ->
+            val isSelected = selectedCurve == curve
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (isSelected) Color(0xFF6366F1) else Color(0xFF27272A))
+                    .clickable {
+                        selectedCurve = curve
+                        selectedClip?.let { clip ->
+                            clip.additionalProperties["curve"] = curve
+                            onClipUpdate(clip)
+                        }
+                    }
+                    .padding(horizontal = 6.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = curve,
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                )
+            }
+        }
+    }
+}

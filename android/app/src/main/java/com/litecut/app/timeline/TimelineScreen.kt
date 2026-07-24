@@ -12,11 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -84,163 +80,206 @@ fun TimelineScreen(
             },
             containerColor = Color(TimelineTheme.backgroundColor)
         ) { paddingValues ->
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // 1. PREVIEW CONTAINER (Video Monitor)
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .padding(12.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFF09090A))
-                    .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
             ) {
-                val activeClipName = if (selectedClipIds.isNotEmpty()) {
-                    engine.getClip(selectedClipIds.first())?.name
-                } else null
-
-                EditorPreviewCanvas(
-                    aspectRatioString = currentProjectRatio,
-                    currentTime = currentTime,
-                    selectedClipName = activeClipName,
+                // Column containing Editor Preview, Transport, and Timeline Area
+                Column(
                     modifier = Modifier.fillMaxSize()
+                ) {
+                    // 1. PREVIEW CONTAINER (Video Monitor)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .padding(12.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color(0xFF09090A))
+                            .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(12.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        val activeClipName = if (selectedClipIds.isNotEmpty()) {
+                            engine.getClip(selectedClipIds.first())?.name
+                        } else null
+
+                        EditorPreviewCanvas(
+                            aspectRatioString = currentProjectRatio,
+                            currentTime = currentTime,
+                            selectedClipName = activeClipName,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+
+                    // 2. MID-TRANSPORT CONTROLS BAR
+                    val activeClipId = selectedClipIds.firstOrNull()
+                    EditorTransportBar(
+                        isPlaying = isPlaying,
+                        onTogglePlay = { isPlaying = !isPlaying },
+                        currentTime = currentTime,
+                        totalDuration = 30.0,
+                        hasKeyframeAtCurrentTime = false,
+                        onToggleKeyframe = {
+                            // Drop / remove keyframe logic
+                        },
+                        onOpenKeyframeCurves = {
+                            activeControlMenu = if (activeControlMenu == "animation") null else "animation"
+                        },
+                        hasSelectedClip = activeClipId != null,
+                        onSplit = {
+                            activeClipId?.let { clipId ->
+                                val command = SplitCommand(clipId, engine.currentTime, java.util.UUID.randomUUID().toString())
+                                engine.executeCommand(command)
+                            }
+                        },
+                        onDelete = {
+                            if (selectedClipIds.isNotEmpty()) {
+                                val command = DeleteCommand(selectedClipIds)
+                                engine.executeCommand(command)
+                                engine.selectedClipIds.clear()
+                            }
+                        },
+                        canUndo = canUndo,
+                        onUndo = { engine.undo() },
+                        canRedo = canRedo,
+                        onRedo = { engine.redo() }
+                    )
+
+                    // 3. TIMELINE TRACKS AREA (Flowbar floats OVER this region)
+                    EditorTimelineArea(
+                        engine = engine,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1.3f)
+                    )
+                }
+
+                // 4. FLOATING FLOWBAR & EXPANDED SUBPANELS OVERLAY (POSITIONED ON TOP OF THE TIMELINE)
+                val selectedClip = selectedClipIds.firstOrNull()?.let { engine.getClip(it) }
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Expanded Floating Sub-Panel Container (Speed Curves, Adjust, Move, Blend, etc.)
+                    FlowBarSubPanelContainer(
+                        activeMenu = activeControlMenu,
+                        selectedClip = selectedClip,
+                        onClose = { activeControlMenu = null },
+                        onClipUpdate = { updatedClip ->
+                            engine.executeCommand(UpdateClipCommand(updatedClip))
+                        }
+                    )
+
+                    // Floating Action Pill (w-[218px]) positioned OVER the timeline
+                    EditorBottomToolBar(
+                        onAddMediaClick = { isMediaDrawerOpen = true },
+                        onVoiceoverClick = { activeControlMenu = if (activeControlMenu == "voiceover") null else "voiceover" },
+                        onVolumeClick = { activeControlMenu = if (activeControlMenu == "volume") null else "volume" },
+                        onAddTextClick = {
+                            val textTrack = engine.getAllLayers().find { it.name?.contains("Text", ignoreCase = true) == true }
+                                ?: engine.getAllLayers().firstOrNull()
+                            if (textTrack != null) {
+                                val newTextClip = Clip(
+                                    id = "clip_text_${System.currentTimeMillis()}",
+                                    layerId = textTrack.id,
+                                    type = ClipType.TEXT,
+                                    src = "",
+                                    name = "New Text Title",
+                                    leftSeconds = engine.currentTime,
+                                    durationSeconds = 5.0,
+                                    trimStartSeconds = 0.0
+                                ).apply {
+                                    text = "New Text"
+                                }
+                                engine.executeCommand(CreateClipCommand(newTextClip))
+                            }
+                            activeControlMenu = "text"
+                        },
+                        onCropClick = { activeControlMenu = if (activeControlMenu == "crop") null else "crop" },
+                        onAdjustClick = { activeControlMenu = if (activeControlMenu == "adjust") null else "adjust" },
+                        onSpeedClick = { activeControlMenu = if (activeControlMenu == "speed") null else "speed" },
+                        onReverseClick = {
+                            selectedClip?.let {
+                                val isReversed = (it.additionalProperties["isReversed"] as? Boolean) ?: false
+                                it.additionalProperties["isReversed"] = !isReversed
+                                engine.executeCommand(UpdateClipCommand(it))
+                            }
+                        },
+                        onStabilizeClick = { activeControlMenu = if (activeControlMenu == "stabilize") null else "stabilize" },
+                        onCopyClick = {
+                            selectedClip?.let { clip ->
+                                val copy = clip.deepCopy(id = "clip_${System.currentTimeMillis()}", leftSeconds = clip.leftSeconds + 0.5)
+                                engine.executeCommand(CreateClipCommand(copy))
+                            }
+                        },
+                        onExtractAudioClick = {
+                            selectedClip?.let { clip ->
+                                val audioLayer = engine.getAllLayers().find { it.type == LayerType.AUDIO } ?: engine.getAllLayers().lastOrNull()
+                                if (audioLayer != null) {
+                                    val extractedAudio = Clip(
+                                        id = "clip_extracted_${System.currentTimeMillis()}",
+                                        layerId = audioLayer.id,
+                                        type = ClipType.AUDIO,
+                                        src = clip.src,
+                                        name = "${clip.name} (Audio)",
+                                        leftSeconds = clip.leftSeconds,
+                                        durationSeconds = clip.durationSeconds,
+                                        trimStartSeconds = clip.trimStartSeconds
+                                    )
+                                    engine.executeCommand(CreateClipCommand(extractedAudio))
+                                }
+                            }
+                        },
+                        onMoveClick = { activeControlMenu = if (activeControlMenu == "move") null else "move" },
+                        onMotionClick = { activeControlMenu = if (activeControlMenu == "motion") null else "motion" },
+                        onAnimationClick = { activeControlMenu = if (activeControlMenu == "animation") null else "animation" },
+                        onMagicClick = {
+                            selectedClip?.let {
+                                it.additionalProperties["opticalFlow"] = true
+                                engine.executeCommand(UpdateClipCommand(it))
+                            }
+                        },
+                        onBlendClick = { activeControlMenu = if (activeControlMenu == "blend") null else "blend" },
+                        onMaskClick = { activeControlMenu = if (activeControlMenu == "mask") null else "mask" },
+                        selectedClip = selectedClip,
+                        activeMenu = activeControlMenu
+                    )
+                }
+
+                // Media Library Drawer Sheet Overlay
+                EditorMediaDrawer(
+                    isVisible = isMediaDrawerOpen,
+                    onCloseDrawer = { isMediaDrawerOpen = false },
+                    isPermissionGranted = isMediaPermissionGranted,
+                    onRequestPermission = { isMediaPermissionGranted = true },
+                    onMediaSelected = { mediaItem ->
+                        val track = engine.getAllLayers().firstOrNull()
+                        if (track != null) {
+                            val newClip = Clip(
+                                id = "clip_${System.currentTimeMillis()}",
+                                layerId = track.id,
+                                type = when (mediaItem.type) {
+                                    "audio" -> ClipType.AUDIO
+                                    "image" -> ClipType.IMAGE
+                                    else -> ClipType.VIDEO
+                                },
+                                src = mediaItem.path.ifEmpty { "file:///path/${mediaItem.name}" },
+                                name = mediaItem.name,
+                                leftSeconds = engine.currentTime,
+                                durationSeconds = if (mediaItem.type == "image") 5.0 else 10.0,
+                                trimStartSeconds = 0.0
+                            )
+                            engine.executeCommand(CreateClipCommand(newClip))
+                        }
+                        isMediaDrawerOpen = false
+                    },
+                    modifier = Modifier.align(Alignment.Center)
                 )
             }
-
-            // 2. MID-TRANSPORT CONTROLS BAR (Section D)
-            val activeClipId = selectedClipIds.firstOrNull()
-            EditorTransportBar(
-                isPlaying = isPlaying,
-                onTogglePlay = { isPlaying = !isPlaying },
-                currentTime = currentTime,
-                totalDuration = 30.0,
-                hasKeyframeAtCurrentTime = false,
-                onToggleKeyframe = {
-                    // Drop / remove keyframe logic
-                },
-                onOpenKeyframeCurves = {
-                    // Open keyframe curve interpolation menu
-                },
-                hasSelectedClip = activeClipId != null,
-                onSplit = {
-                    activeClipId?.let { clipId ->
-                        val command = SplitCommand(clipId, engine.currentTime, java.util.UUID.randomUUID().toString())
-                        engine.executeCommand(command)
-                    }
-                },
-                onDelete = {
-                    if (selectedClipIds.isNotEmpty()) {
-                        val command = DeleteCommand(selectedClipIds)
-                        engine.executeCommand(command)
-                        engine.selectedClipIds.clear()
-                    }
-                },
-                canUndo = canUndo,
-                onUndo = { engine.undo() },
-                canRedo = canRedo,
-                onRedo = { engine.redo() }
-            )
-
-            // 3. TIMELINE TRACKS AREA (Section E)
-            EditorTimelineArea(
-                engine = engine,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1.3f)
-            )
-
-            // 4. FLOATING BOTTOM ACTION TOOLBAR & SUB CONTROLS
-            val selectedClip = selectedClipIds.firstOrNull()?.let { engine.getClip(it) }
-
-            // Sub-Panel Sheet (Color Adjustments, Speed Curves, Voiceover, Audio, Text, Crop, Effects)
-            FlowBarSubPanelContainer(
-                activeMenu = activeControlMenu,
-                selectedClip = selectedClip,
-                onClose = { activeControlMenu = null },
-                onClipUpdate = { updatedClip ->
-                    engine.executeCommand(UpdateClipCommand(updatedClip))
-                }
-            )
-
-            EditorBottomToolBar(
-                onAddMediaClick = { isMediaDrawerOpen = true },
-                onVoiceoverClick = {
-                    activeControlMenu = if (activeControlMenu == "voiceover") null else "voiceover"
-                },
-                onAudioClick = {
-                    activeControlMenu = if (activeControlMenu == "audio") null else "audio"
-                },
-                onAddTextClick = {
-                    val textTrack = engine.getAllLayers().find { it.name?.contains("Text", ignoreCase = true) == true } 
-                        ?: engine.getAllLayers().firstOrNull()
-                    if (textTrack != null) {
-                        val newTextClip = Clip(
-                            id = "clip_text_${System.currentTimeMillis()}",
-                            layerId = textTrack.id,
-                            type = ClipType.TEXT,
-                            src = "",
-                            name = "Text Title",
-                            leftSeconds = engine.currentTime,
-                            durationSeconds = 5.0,
-                            trimStartSeconds = 0.0
-                        ).apply {
-                            text = "New Text"
-                        }
-                        engine.executeCommand(CreateClipCommand(newTextClip))
-                    }
-                    activeControlMenu = "text"
-                },
-                onCropClick = {
-                    activeControlMenu = if (activeControlMenu == "crop") null else "crop"
-                },
-                onAdjustClick = {
-                    activeControlMenu = if (activeControlMenu == "adjust") null else "adjust"
-                },
-                onSpeedClick = {
-                    activeControlMenu = if (activeControlMenu == "speed") null else "speed"
-                },
-                onEffectsClick = {
-                    activeControlMenu = if (activeControlMenu == "effects") null else "effects"
-                },
-                selectedClip = selectedClip,
-                activeMenu = activeControlMenu
-            )
-
-            // Media Library Drawer Sheet Overlay
-            EditorMediaDrawer(
-                isVisible = isMediaDrawerOpen,
-                onCloseDrawer = { isMediaDrawerOpen = false },
-                isPermissionGranted = isMediaPermissionGranted,
-                onRequestPermission = { isMediaPermissionGranted = true },
-                onMediaSelected = { mediaItem ->
-                    val track = engine.getAllLayers().firstOrNull()
-                    if (track != null) {
-                        val newClip = Clip(
-                            id = "clip_${System.currentTimeMillis()}",
-                            layerId = track.id,
-                            type = when (mediaItem.type) {
-                                "audio" -> ClipType.AUDIO
-                                "image" -> ClipType.IMAGE
-                                else -> ClipType.VIDEO
-                            },
-                            src = mediaItem.path.ifEmpty { "file:///path/${mediaItem.name}" },
-                            name = mediaItem.name,
-                            leftSeconds = engine.currentTime,
-                            durationSeconds = if (mediaItem.type == "image") 5.0 else 10.0,
-                            trimStartSeconds = 0.0
-                        )
-                        engine.executeCommand(CreateClipCommand(newClip))
-                    }
-                    isMediaDrawerOpen = false
-                },
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
         }
     }
-}
 }
