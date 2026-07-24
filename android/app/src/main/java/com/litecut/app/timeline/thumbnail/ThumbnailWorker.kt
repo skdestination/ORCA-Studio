@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.PriorityBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
@@ -19,7 +20,7 @@ class ThumbnailWorker(
     // A thread pool with a single worker or small core pool to prevent CPU contention with playback / UI thread
     private val executor = ThreadPoolExecutor(
         1, 2, 60L, TimeUnit.SECONDS,
-        PriorityBlockingQueue()
+        LinkedBlockingQueue()
     )
 
     fun submit(request: ThumbnailRequest) {
