@@ -237,9 +237,7 @@ export async function processSmoothSlowMoBrowser(
     console.log(`Invoking native decodeAllFrames pipeline with algorithm: ${algorithm}...`);
     const decodeResult = await SmoothSlowMotionNative.decodeAllFrames({
       inputPath: rawInput,
-      speed: speedFactor,
-      algorithm: algorithm,
-      mode: algorithm
+      speed: speedFactor
     });
     console.log("Native decoding and timestamp verification completed successfully:", decodeResult);
 

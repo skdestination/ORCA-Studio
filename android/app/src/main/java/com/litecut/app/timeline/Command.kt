@@ -153,3 +153,21 @@ class RippleDeleteCommand(private val clipId: String) : Command {
         }
     }
 }
+
+class UpdateClipCommand(private val updatedClip: Clip) : Command {
+    private var previousClip: Clip? = null
+
+    override fun execute(engine: TimelineEngine) {
+        engine.getClip(updatedClip.id)?.let {
+            previousClip = it.copy(additionalProperties = it.additionalProperties.toMutableMap())
+        }
+        engine.addClipInternal(updatedClip)
+    }
+
+    override fun undo(engine: TimelineEngine) {
+        previousClip?.let {
+            engine.addClipInternal(it)
+        }
+    }
+}
+

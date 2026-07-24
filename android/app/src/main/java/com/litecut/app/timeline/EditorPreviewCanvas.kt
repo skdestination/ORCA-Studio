@@ -123,10 +123,21 @@ fun EditorPreviewCanvas(
                                 scaleY = scale
                                 rotationZ = rotation
                             }
-                            .fillMaxSize(0.85f)
+                            .fillMaxSize(0.92f)
                             .background(
-                                if (isClipSelected) Color(0xFF1E1E24) else Color(0xFF141416),
-                                RoundedCornerShape(6.dp)
+                                Brush.verticalGradient(
+                                    listOf(
+                                        Color(0xFF2A2A32),
+                                        Color(0xFF18181E),
+                                        Color(0xFF0F0F12)
+                                    )
+                                ),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .border(
+                                1.dp,
+                                if (isClipSelected) Color(0xFF6366F1) else Color(0x33FFFFFF),
+                                RoundedCornerShape(12.dp)
                             ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -136,10 +147,10 @@ fun EditorPreviewCanvas(
                             modifier = Modifier.padding(16.dp)
                         ) {
                             Text(
-                                text = selectedClipName ?: "No Clip Selected",
-                                color = if (isClipSelected) Color.White else Color(0x66FFFFFF),
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                text = selectedClipName ?: "Alpine Peaks (1080p)",
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center
                             )
                             Spacer(modifier = Modifier.height(6.dp))

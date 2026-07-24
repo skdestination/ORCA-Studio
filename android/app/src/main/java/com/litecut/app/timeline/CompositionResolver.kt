@@ -15,8 +15,23 @@ object CompositionResolver {
         isProxyMode: Boolean,
         targetNode: CompositionNode
     ) {
-        val relativeOffset = currentTime - clip.leftSeconds
-        
+        val rawOffset = currentTime - clip.leftSeconds
+        var relativeOffset = rawOffset * clip.speed
+
+        val speedCurvePreset = clip.additionalProperties["speedCurve"] as? String
+        if (speedCurvePreset != null && speedCurvePreset != "None") {
+            val progress = if (clip.durationSeconds > 0) (rawOffset / clip.durationSeconds).coerceIn(0.0, 1.0) else 0.0
+            val factor = when (speedCurvePreset) {
+                "Hero" -> BezierCurve.evaluate(progress, 0.12, 0.0, 0.39, 0.0) * 3.0 + 0.5
+                "Bullet Time" -> BezierCurve.evaluate(progress, 0.0, 1.0, 1.0, 0.0) * 0.2 + 0.1
+                "Montage" -> BezierCurve.evaluate(progress, 0.25, 0.1, 0.25, 1.0) * 2.5
+                "Flash" -> BezierCurve.evaluate(progress, 0.6, 0.04, 0.98, 0.335) * 4.0
+                "Jump" -> BezierCurve.evaluate(progress, 0.4, 0.0, 0.2, 1.0) * 2.0
+                else -> 1.0
+            }
+            relativeOffset *= factor
+        }
+
         targetNode.id = "${clip.id}:$currentTime"
         targetNode.clipId = clip.id
         targetNode.layerId = clip.layerId

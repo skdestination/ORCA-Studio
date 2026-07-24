@@ -139,3 +139,27 @@ val Clip.rotation: Float
 val Clip.mute: Boolean
     get() = (additionalProperties["mute"] as? Boolean) ?: ((additionalProperties["mute"] as? Number)?.toDouble() ?: 0.0 > 0.5)
 
+var Clip.text: String?
+    get() = additionalProperties["text"] as? String
+    set(value) { additionalProperties["text"] = value }
+
+var Clip.volume: Float
+    get() = (additionalProperties["volume"] as? Number)?.toFloat() ?: 1.0f
+    set(value) { additionalProperties["volume"] = value }
+
+var Clip.brightness: Float
+    get() = (additionalProperties["brightness"] as? Number)?.toFloat() ?: 0.0f
+    set(value) { additionalProperties["brightness"] = value }
+
+var Clip.contrast: Float
+    get() = (additionalProperties["contrast"] as? Number)?.toFloat() ?: 0.0f
+    set(value) { additionalProperties["contrast"] = value }
+
+var Clip.saturation: Float
+    get() = (additionalProperties["saturation"] as? Number)?.toFloat() ?: 0.0f
+    set(value) { additionalProperties["saturation"] = value }
+
+var Clip.temperature: Float
+    get() = (additionalProperties["temperature"] as? Number)?.toFloat() ?: 0.0f
+    set(value) { additionalProperties["temperature"] = value }
+

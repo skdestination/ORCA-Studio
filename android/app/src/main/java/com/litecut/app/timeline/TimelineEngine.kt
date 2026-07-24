@@ -34,6 +34,52 @@ class TimelineEngine {
         }
     }
 
+    init {
+        seedSampleData()
+    }
+
+    fun seedSampleData() {
+        if (layers.isEmpty()) {
+            val vLayer = Layer(id = "L_v1", name = "Video Track", order = 0)
+            val aLayer = Layer(id = "L_a1", name = "Audio Track", order = 1)
+            val tLayer = Layer(id = "L_tx1", name = "Text Track", order = 2)
+            layers.add(vLayer)
+            layers.add(aLayer)
+            layers.add(tLayer)
+
+            val vClip = Clip(
+                id = "clip_v1",
+                layerId = vLayer.id,
+                type = ClipType.VIDEO,
+                src = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+                name = "Alpine Peaks",
+                leftSeconds = 0.0,
+                durationSeconds = 12.0
+            )
+            val aClip = Clip(
+                id = "clip_a1",
+                layerId = aLayer.id,
+                type = ClipType.AUDIO,
+                src = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
+                name = "Lofi Beats",
+                leftSeconds = 0.0,
+                durationSeconds = 12.0
+            )
+            val tClip = Clip(
+                id = "clip_t1",
+                layerId = tLayer.id,
+                type = ClipType.TEXT,
+                text = "Smooth Slow-Mo",
+                name = "Title Text",
+                leftSeconds = 2.0,
+                durationSeconds = 6.0
+            )
+            clips[vClip.id] = vClip
+            clips[aClip.id] = aClip
+            clips[tClip.id] = tClip
+        }
+    }
+
     // --- State Serialization & Import ---
 
     fun loadFromProjectJSON(projectJsonStr: String) {

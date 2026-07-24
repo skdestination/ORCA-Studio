@@ -60,7 +60,7 @@ class AudioRenderPipeline(
                 if (channel.isMuted || clip.mute) continue
 
                 // Retrieve PCM data from cache
-                val relativeTime = currentTimeSeconds - clip.leftSeconds + clip.trimStartSeconds
+                val relativeTime = (currentTimeSeconds - clip.leftSeconds) * clip.speed + clip.trimStartSeconds
                 val segmentIndex = (relativeTime).toInt()
                 
                 // Lease a temporary channel buffer

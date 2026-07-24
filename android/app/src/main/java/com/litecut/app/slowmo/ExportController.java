@@ -15,7 +15,7 @@ public class ExportController {
     }
     
     public void initialize(String quality, int width, int height) {
-        if ("high".equalsIgnoreCase(quality)) {
+        if ("high".equalsIgnoreCase(quality) || "raft".equalsIgnoreCase(quality) || "quality".equalsIgnoreCase(quality)) {
             opticalFlowEngine = new RAFTOpticalFlowEngine();
         } else {
             opticalFlowEngine = new DISOpticalFlowEngine();

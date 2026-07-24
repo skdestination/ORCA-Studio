@@ -1,5 +1,7 @@
 package com.litecut.app.timeline
 
+import com.litecut.app.controls.EditorBottomToolBar
+import com.litecut.app.controls.FlowBarSubPanelContainer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -35,6 +37,7 @@ fun TimelineScreen(
     var isFullscreen by remember { mutableStateOf(false) }
     var isMediaDrawerOpen by remember { mutableStateOf(false) }
     var isMediaPermissionGranted by remember { mutableStateOf(true) }
+    var activeControlMenu by remember { mutableStateOf<String?>(null) }
 
     // Periodically poll playhead state for UI display synchronization
     LaunchedEffect(isPlaying) {
@@ -149,6 +152,60 @@ fun TimelineScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1.3f)
+            )
+
+            // 4. FLOATING BOTTOM ACTION TOOLBAR & SUB CONTROLS
+            val selectedClip = selectedClipIds.firstOrNull()?.let { engine.getClip(it) }
+
+            // Sub-Panel Sheet (Color Adjustments, Speed Curves, Voiceover, Audio, Text, Crop, Effects)
+            FlowBarSubPanelContainer(
+                activeMenu = activeControlMenu,
+                selectedClip = selectedClip,
+                onClose = { activeControlMenu = null },
+                onClipUpdate = { updatedClip ->
+                    engine.executeCommand(UpdateClipCommand(updatedClip))
+                }
+            )
+
+            EditorBottomToolBar(
+                onAddMediaClick = { isMediaDrawerOpen = true },
+                onVoiceoverClick = {
+                    activeControlMenu = if (activeControlMenu == "voiceover") null else "voiceover"
+                },
+                onAudioClick = {
+                    activeControlMenu = if (activeControlMenu == "audio") null else "audio"
+                },
+                onAddTextClick = {
+                    val textTrack = engine.getAllLayers().find { it.name.contains("Text", ignoreCase = true) } 
+                        ?: engine.getAllLayers().firstOrNull()
+                    if (textTrack != null) {
+                        val newTextClip = Clip(
+                            id = "clip_text_${System.currentTimeMillis()}",
+                            layerId = textTrack.id,
+                            type = ClipType.TEXT,
+                            text = "New Text",
+                            name = "Text Title",
+                            leftSeconds = engine.currentTime,
+                            durationSeconds = 5.0
+                        )
+                        engine.executeCommand(CreateClipCommand(newTextClip))
+                    }
+                    activeControlMenu = "text"
+                },
+                onCropClick = {
+                    activeControlMenu = if (activeControlMenu == "crop") null else "crop"
+                },
+                onAdjustClick = {
+                    activeControlMenu = if (activeControlMenu == "adjust") null else "adjust"
+                },
+                onSpeedClick = {
+                    activeControlMenu = if (activeControlMenu == "speed") null else "speed"
+                },
+                onEffectsClick = {
+                    activeControlMenu = if (activeControlMenu == "effects") null else "effects"
+                },
+                selectedClip = selectedClip,
+                activeMenu = activeControlMenu
             )
 
             // Media Library Drawer Sheet Overlay

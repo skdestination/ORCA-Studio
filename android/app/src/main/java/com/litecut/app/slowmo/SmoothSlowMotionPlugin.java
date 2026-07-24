@@ -329,9 +329,9 @@ public class SmoothSlowMotionPlugin extends Plugin {
             int height = format.containsKey(MediaFormat.KEY_HEIGHT) ? format.getInteger(MediaFormat.KEY_HEIGHT) : 0;
             int stride = format.containsKey(MediaFormat.KEY_STRIDE) ? format.getInteger(MediaFormat.KEY_STRIDE) : width;
 
-            String quality = call.getString("quality", "fast");
+            String algorithmParam = call.getString("algorithm", call.getString("mode", call.getString("quality", "fast")));
             exportController = new ExportController(getContext());
-            exportController.initialize(quality, width, height);
+            exportController.initialize(algorithmParam, width, height);
             long timeoutUs = 10000; // 10ms
 
             while (!isOutputEOS) {

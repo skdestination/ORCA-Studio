@@ -479,7 +479,7 @@ class OrcaEngine private constructor(val context: Context) : ManagedCache {
             if (layer?.isLocked == true) continue
 
             // Evaluate or use cached static properties
-            val relativeTime = timeSeconds - node.relativeTimeOffset
+            val relativeTime = node.relativeTimeOffset
             
             val isStatic = staticClipChecks.getOrPut(clip.id) {
                 // A clip is static if it does not have keyframes
