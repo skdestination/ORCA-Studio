@@ -40,6 +40,58 @@ data class Layer(
     }
 }
 
+fun deepCloneValue(value: Any?): Any? {
+    return when (value) {
+        null -> null
+        is String, is Number, is Boolean, is Char, is Enum<*> -> value
+        is Map<*, *> -> {
+            val copy = LinkedHashMap<String, Any?>()
+            for ((k, v) in value) {
+                if (k != null) {
+                    copy[k.toString()] = deepCloneValue(v)
+                }
+            }
+            copy
+        }
+        is List<*> -> {
+            val copy = ArrayList<Any?>(value.size)
+            for (item in value) {
+                copy.add(deepCloneValue(item))
+            }
+            copy
+        }
+        is Set<*> -> {
+            val copy = LinkedHashSet<Any?>(value.size)
+            for (item in value) {
+                copy.add(deepCloneValue(item))
+            }
+            copy
+        }
+        is Collection<*> -> {
+            val copy = ArrayList<Any?>(value.size)
+            for (item in value) {
+                copy.add(deepCloneValue(item))
+            }
+            copy
+        }
+        is JSONObject -> {
+            try {
+                JSONObject(value.toString())
+            } catch (e: Exception) {
+                JSONObject()
+            }
+        }
+        is JSONArray -> {
+            try {
+                JSONArray(value.toString())
+            } catch (e: Exception) {
+                JSONArray()
+            }
+        }
+        else -> value
+    }
+}
+
 data class Clip(
     val id: String,
     var layerId: String,
@@ -48,13 +100,45 @@ data class Clip(
     var name: String? = null,
     var leftSeconds: Double,
     var durationSeconds: Double,
-    var trimStartSeconds: Double,
+    var trimStartSeconds: Double = 0.0,
     var originalDurationSeconds: Double? = null,
     var speed: Double = 1.0,
     // Store all other React-only properties (keyframes, styling, etc.) dynamically
     // so they are fully preserved during operations.
     val additionalProperties: MutableMap<String, Any?> = mutableMapOf()
 ) {
+    fun deepCopy(
+        id: String = this.id,
+        layerId: String = this.layerId,
+        type: ClipType = this.type,
+        src: String = this.src,
+        name: String? = this.name,
+        leftSeconds: Double = this.leftSeconds,
+        durationSeconds: Double = this.durationSeconds,
+        trimStartSeconds: Double = this.trimStartSeconds,
+        originalDurationSeconds: Double? = this.originalDurationSeconds,
+        speed: Double = this.speed,
+        additionalProperties: MutableMap<String, Any?> = this.additionalProperties
+    ): Clip {
+        val clonedMap = LinkedHashMap<String, Any?>()
+        for ((k, v) in additionalProperties) {
+            clonedMap[k] = deepCloneValue(v)
+        }
+        return Clip(
+            id = id,
+            layerId = layerId,
+            type = type,
+            src = src,
+            name = name,
+            leftSeconds = leftSeconds,
+            durationSeconds = durationSeconds,
+            trimStartSeconds = trimStartSeconds,
+            originalDurationSeconds = originalDurationSeconds,
+            speed = speed,
+            additionalProperties = clonedMap
+        )
+    }
+
     fun toJSONObject(): JSONObject {
         val json = JSONObject()
         json.put("id", id)

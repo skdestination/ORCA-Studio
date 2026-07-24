@@ -183,11 +183,14 @@ fun TimelineScreen(
                             id = "clip_text_${System.currentTimeMillis()}",
                             layerId = textTrack.id,
                             type = ClipType.TEXT,
-                            text = "New Text",
+                            src = "",
                             name = "Text Title",
                             leftSeconds = engine.currentTime,
-                            durationSeconds = 5.0
-                        )
+                            durationSeconds = 5.0,
+                            trimStartSeconds = 0.0
+                        ).apply {
+                            text = "New Text"
+                        }
                         engine.executeCommand(CreateClipCommand(newTextClip))
                     }
                     activeControlMenu = "text"

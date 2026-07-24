@@ -38,6 +38,101 @@ class ProjectEngine private constructor(val context: Context) {
         }
     }
 
+    fun getProjectsDir(): File {
+        val dir = File(context.filesDir, "projects")
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
+
+    /**
+     * Lists all real saved ProjectDocuments from storage.
+     */
+    fun listProjects(): List<ProjectDocument> {
+        val dir = getProjectsDir()
+        val files = dir.listFiles { _, name -> name.endsWith(".orca") } ?: emptyArray()
+        val docs = mutableListOf<ProjectDocument>()
+
+        for (file in files) {
+            val jsonStr = compressor.decompressFromFile(file) ?: continue
+            try {
+                val jsonObject = JSONObject(jsonStr)
+                val doc = ProjectDocument.fromJSONObject(jsonObject)
+                docs.add(doc)
+            } catch (e: Exception) {
+                Log.e("ProjectEngine", "Error reading project file ${file.name}", e)
+            }
+        }
+
+        if (docs.isEmpty()) {
+            val defaultProject = createProject("My First Video", 1080, 1920)
+            docs.add(defaultProject)
+        }
+
+        return docs.sortedByDescending { it.metadata.modifiedAtMs }
+    }
+
+    /**
+     * Creates a new project document on storage with aspect ratio dimensions and saves it.
+     */
+    fun createProject(projectName: String, width: Int = 1080, height: Int = 1920): ProjectDocument {
+        val doc = createNewProject(projectName)
+        doc.metadata.width = width
+        doc.metadata.height = height
+        
+        val projectFile = File(getProjectsDir(), "${doc.metadata.id}.orca")
+        saveProjectDocumentToFile(doc, projectFile)
+        currentProjectFile = projectFile
+        currentDocument = doc
+        return doc
+    }
+
+    /**
+     * Deletes a real saved project from storage.
+     */
+    fun deleteProject(projectId: String): Boolean {
+        val projectFile = File(getProjectsDir(), "$projectId.orca")
+        if (currentDocument?.metadata?.id == projectId) {
+            closeCurrentProject()
+        }
+        return if (projectFile.exists()) {
+            projectFile.delete()
+        } else false
+    }
+
+    /**
+     * Duplicates a real project document on storage with a new ID and saves it.
+     */
+    fun duplicateProject(projectId: String): ProjectDocument? {
+        val sourceFile = File(getProjectsDir(), "$projectId.orca")
+        if (!sourceFile.exists()) return null
+
+        val jsonStr = compressor.decompressFromFile(sourceFile) ?: return null
+        return try {
+            val jsonObject = JSONObject(jsonStr)
+            val doc = ProjectDocument.fromJSONObject(jsonObject)
+            val newId = java.util.UUID.randomUUID().toString()
+            doc.metadata.name = "${doc.metadata.name} Copy"
+            doc.metadata.createdAtMs = System.currentTimeMillis()
+            doc.metadata.modifiedAtMs = System.currentTimeMillis()
+            
+            val newMetadataJson = doc.metadata.toJSONObject()
+            newMetadataJson.put("id", newId)
+            val clonedDoc = ProjectDocument(
+                metadata = ProjectMetadata.fromJSONObject(newMetadataJson),
+                assets = doc.assets,
+                timelineData = doc.timelineData,
+                playbackSettings = doc.playbackSettings,
+                exportSettings = doc.exportSettings
+            )
+            val newFile = File(getProjectsDir(), "$newId.orca")
+            saveProjectDocumentToFile(clonedDoc, newFile)
+            clonedDoc
+        } catch (e: Exception) {
+            Log.e("ProjectEngine", "Failed to duplicate project $projectId", e)
+            null
+        }
+    }
+
     /**
      * Initializes a new, empty project session inside ORCA.
      */

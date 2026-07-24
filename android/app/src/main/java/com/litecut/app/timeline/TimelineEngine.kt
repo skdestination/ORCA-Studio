@@ -69,11 +69,14 @@ class TimelineEngine {
                 id = "clip_t1",
                 layerId = tLayer.id,
                 type = ClipType.TEXT,
-                text = "Smooth Slow-Mo",
+                src = "",
                 name = "Title Text",
                 leftSeconds = 2.0,
-                durationSeconds = 6.0
-            )
+                durationSeconds = 6.0,
+                trimStartSeconds = 0.0
+            ).apply {
+                text = "Smooth Slow-Mo"
+            }
             clips[vClip.id] = vClip
             clips[aClip.id] = aClip
             clips[tClip.id] = tClip
@@ -431,18 +434,12 @@ class TimelineEngine {
             
             // Create right clip
             val newTrimStart = clip.trimStartSeconds + leftDuration * clip.speed
-            val newClip = Clip(
+            val newClip = clip.deepCopy(
                 id = generatedNewId,
-                layerId = clip.layerId,
-                type = clip.type,
-                src = clip.src,
                 name = clip.name?.let { "$it (Split)" } ?: "Split Clip",
                 leftSeconds = splitTime,
                 durationSeconds = rightDuration,
-                trimStartSeconds = newTrimStart,
-                originalDurationSeconds = clip.originalDurationSeconds,
-                speed = clip.speed,
-                additionalProperties = clip.additionalProperties.toMutableMap()
+                trimStartSeconds = newTrimStart
             )
             newClip.additionalProperties["keyframes"] = rightKfs
             
@@ -452,18 +449,12 @@ class TimelineEngine {
 
         // Create right clip (no keyframes)
         val newTrimStart = clip.trimStartSeconds + leftDuration * clip.speed
-        val newClip = Clip(
+        val newClip = clip.deepCopy(
             id = generatedNewId,
-            layerId = clip.layerId,
-            type = clip.type,
-            src = clip.src,
             name = clip.name?.let { "$it (Split)" } ?: "Split Clip",
             leftSeconds = splitTime,
             durationSeconds = rightDuration,
-            trimStartSeconds = newTrimStart,
-            originalDurationSeconds = clip.originalDurationSeconds,
-            speed = clip.speed,
-            additionalProperties = clip.additionalProperties.toMutableMap()
+            trimStartSeconds = newTrimStart
         )
 
         clips[newClip.id] = newClip

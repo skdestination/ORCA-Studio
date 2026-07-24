@@ -9,6 +9,8 @@ import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.runtime.*
+import com.litecut.app.home.HomeScreen
 import com.litecut.app.timeline.TimelineScreen
 
 /**
@@ -41,10 +43,32 @@ class MainActivity : ComponentActivity() {
         controller.isAppearanceLightNavigationBars = false
 
         setContent {
-            TimelineScreen(
-                modifier = Modifier.fillMaxSize(),
-                onBackClick = { finish() }
-            )
+            var currentScreen by remember { mutableStateOf("home") }
+
+            when (currentScreen) {
+                "home" -> {
+                    HomeScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        onOpenProject = { project ->
+                            currentScreen = "editor"
+                        },
+                        onCreateProject = { ratio ->
+                            currentScreen = "editor"
+                        },
+                        onOpenSettings = {
+                            // Settings navigation
+                        }
+                    )
+                }
+                "editor" -> {
+                    TimelineScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        onBackClick = {
+                            currentScreen = "home"
+                        }
+                    )
+                }
+            }
         }
     }
 }

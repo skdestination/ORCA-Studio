@@ -24,7 +24,7 @@ class DeleteCommand(private val clipIds: List<String>) : Command {
         deletedClips.clear()
         for (id in clipIds) {
             engine.getClip(id)?.let {
-                deletedClips.add(it.copy(additionalProperties = it.additionalProperties.toMutableMap()))
+                deletedClips.add(it.deepCopy())
             }
         }
         engine.deleteClipsInternal(clipIds)
@@ -128,7 +128,7 @@ class RippleDeleteCommand(private val clipId: String) : Command {
 
     override fun execute(engine: TimelineEngine) {
         val clip = engine.getClip(clipId) ?: return
-        deletedClip = clip.copy(additionalProperties = clip.additionalProperties.toMutableMap())
+        deletedClip = clip.deepCopy()
         shiftedClips.clear()
 
         val deleteLeft = clip.leftSeconds
@@ -159,7 +159,7 @@ class UpdateClipCommand(private val updatedClip: Clip) : Command {
 
     override fun execute(engine: TimelineEngine) {
         engine.getClip(updatedClip.id)?.let {
-            previousClip = it.copy(additionalProperties = it.additionalProperties.toMutableMap())
+            previousClip = it.deepCopy()
         }
         engine.addClipInternal(updatedClip)
     }

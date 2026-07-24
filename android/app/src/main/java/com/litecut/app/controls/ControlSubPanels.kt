@@ -108,10 +108,10 @@ fun AdjustmentControlPanel(
     selectedClip: Clip?,
     onClipUpdate: (Clip) -> Unit
 ) {
-    var brightness by remember(selectedClip) { mutableFloatStateOf(selectedClip?.brightness ?: 0f) }
-    var contrast by remember(selectedClip) { mutableFloatStateOf(selectedClip?.contrast ?: 0f) }
-    var saturation by remember(selectedClip) { mutableFloatStateOf(selectedClip?.saturation ?: 0f) }
-    var temperature by remember(selectedClip) { mutableFloatStateOf(selectedClip?.temperature ?: 0f) }
+    var brightness by remember(selectedClip) { mutableStateOf(selectedClip?.brightness ?: 0f) }
+    var contrast by remember(selectedClip) { mutableStateOf(selectedClip?.contrast ?: 0f) }
+    var saturation by remember(selectedClip) { mutableStateOf(selectedClip?.saturation ?: 0f) }
+    var temperature by remember(selectedClip) { mutableStateOf(selectedClip?.temperature ?: 0f) }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         AdjustmentSlider("Brightness", brightness, -100f..100f) {
@@ -189,7 +189,7 @@ fun SpeedControlPanel(
     onClipUpdate: (Clip) -> Unit
 ) {
     var selectedMode by remember { mutableStateOf("normal") } // "normal" or "curve"
-    var speedMultiplier by remember(selectedClip) { mutableFloatStateOf(selectedClip?.speed?.toFloat() ?: 1.0f) }
+    var speedMultiplier by remember(selectedClip) { mutableStateOf(selectedClip?.speed?.toFloat() ?: 1.0f) }
     var selectedCurvePreset by remember { mutableStateOf("None") }
 
     val curvePresets = listOf("None", "Hero", "Bullet Time", "Montage", "Flash", "Jump")
@@ -238,7 +238,7 @@ fun SpeedControlPanel(
                     onValueChange = {
                         speedMultiplier = it
                         selectedClip?.let { clip ->
-                            onClipUpdate(clip.copy(speed = it.toDouble()))
+                            onClipUpdate(clip.deepCopy(speed = it.toDouble()))
                         }
                     },
                     valueRange = 0.1f..10.0f,
@@ -277,7 +277,7 @@ fun SpeedControlPanel(
                                         else -> 1.0
                                     }
                                     clip.additionalProperties["speedCurve"] = preset
-                                    onClipUpdate(clip.copy(speed = factor))
+                                    onClipUpdate(clip.deepCopy(speed = factor))
                                 }
                             }
                             .padding(horizontal = 14.dp, vertical = 8.dp)
@@ -300,9 +300,9 @@ fun AudioControlPanel(
     selectedClip: Clip?,
     onClipUpdate: (Clip) -> Unit
 ) {
-    var volume by remember(selectedClip) { mutableFloatStateOf((selectedClip?.volume ?: 1.0f) * 100f) }
-    var fadeIn by remember(selectedClip) { mutableFloatStateOf((selectedClip?.additionalProperties?.get("fadeIn") as? Number)?.toFloat() ?: 0f) }
-    var fadeOut by remember(selectedClip) { mutableFloatStateOf((selectedClip?.additionalProperties?.get("fadeOut") as? Number)?.toFloat() ?: 0f) }
+    var volume by remember(selectedClip) { mutableStateOf((selectedClip?.volume ?: 1.0f) * 100f) }
+    var fadeIn by remember(selectedClip) { mutableStateOf((selectedClip?.additionalProperties?.get("fadeIn") as? Number)?.toFloat() ?: 0f) }
+    var fadeOut by remember(selectedClip) { mutableStateOf((selectedClip?.additionalProperties?.get("fadeOut") as? Number)?.toFloat() ?: 0f) }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         AdjustmentSlider("Volume", volume, 0f..200f) {
