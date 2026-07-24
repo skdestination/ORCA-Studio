@@ -40,9 +40,9 @@ class TimelineEngine {
 
     fun seedSampleData() {
         if (layers.isEmpty()) {
-            val vLayer = Layer(id = "L_v1", name = "Video Track", order = 0)
-            val aLayer = Layer(id = "L_a1", name = "Audio Track", order = 1)
-            val tLayer = Layer(id = "L_tx1", name = "Text Track", order = 2)
+            val vLayer = Layer(id = "L_v1", order = 0, isMuted = false, isHidden = false, name = "Video Track")
+            val aLayer = Layer(id = "L_a1", order = 1, isMuted = false, isHidden = false, name = "Audio Track")
+            val tLayer = Layer(id = "L_tx1", order = 2, isMuted = false, isHidden = false, name = "Text Track")
             layers.add(vLayer)
             layers.add(aLayer)
             layers.add(tLayer)

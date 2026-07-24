@@ -9,9 +9,9 @@ enum class ClipType {
 
 data class Layer(
     val id: String,
-    var order: Int,
-    var isMuted: Boolean,
-    var isHidden: Boolean,
+    var order: Int = 0,
+    var isMuted: Boolean = false,
+    var isHidden: Boolean = false,
     var isLocked: Boolean = false,
     var name: String? = null
 ) {

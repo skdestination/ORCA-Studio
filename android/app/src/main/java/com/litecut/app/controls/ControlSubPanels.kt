@@ -149,7 +149,7 @@ fun AdjustmentControlPanel(
 private fun AdjustmentSlider(
     label: String,
     value: Float,
-    range: ClosedRange<Float>,
+    range: ClosedFloatingPointRange<Float>,
     onValueChange: (Float) -> Unit
 ) {
     Row(

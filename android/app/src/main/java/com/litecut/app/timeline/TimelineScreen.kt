@@ -176,7 +176,7 @@ fun TimelineScreen(
                     activeControlMenu = if (activeControlMenu == "audio") null else "audio"
                 },
                 onAddTextClick = {
-                    val textTrack = engine.getAllLayers().find { it.name.contains("Text", ignoreCase = true) } 
+                    val textTrack = engine.getAllLayers().find { it.name?.contains("Text", ignoreCase = true) == true } 
                         ?: engine.getAllLayers().firstOrNull()
                     if (textTrack != null) {
                         val newTextClip = Clip(
