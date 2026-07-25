@@ -40,46 +40,19 @@ class TimelineEngine {
 
     fun seedSampleData() {
         if (layers.isEmpty()) {
-            val vLayer = Layer(id = "L_v1", order = 0, isMuted = false, isHidden = false, name = "Video Track")
-            val aLayer = Layer(id = "L_a1", order = 1, isMuted = false, isHidden = false, name = "Audio Track")
-            val tLayer = Layer(id = "L_tx1", order = 2, isMuted = false, isHidden = false, name = "Text Track")
-            layers.add(vLayer)
-            layers.add(aLayer)
-            layers.add(tLayer)
+            val l6 = Layer(id = "L_6", order = 5, isMuted = false, isHidden = false, name = "Overlay 2")
+            val l5 = Layer(id = "L_5", order = 4, isMuted = false, isHidden = false, name = "Overlay 1")
+            val l4 = Layer(id = "L_4", order = 3, isMuted = false, isHidden = false, name = "Text Layer")
+            val l3 = Layer(id = "L_3", order = 2, isMuted = false, isHidden = false, name = "Main Video")
+            val l2 = Layer(id = "L_2", order = 1, isMuted = false, isHidden = false, name = "Audio 1")
+            val l1 = Layer(id = "L_1", order = 0, isMuted = false, isHidden = false, name = "Audio 2")
 
-            val vClip = Clip(
-                id = "clip_v1",
-                layerId = vLayer.id,
-                type = ClipType.VIDEO,
-                src = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-                name = "Alpine Peaks",
-                leftSeconds = 0.0,
-                durationSeconds = 12.0
-            )
-            val aClip = Clip(
-                id = "clip_a1",
-                layerId = aLayer.id,
-                type = ClipType.AUDIO,
-                src = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-                name = "Lofi Beats",
-                leftSeconds = 0.0,
-                durationSeconds = 12.0
-            )
-            val tClip = Clip(
-                id = "clip_t1",
-                layerId = tLayer.id,
-                type = ClipType.TEXT,
-                src = "",
-                name = "Title Text",
-                leftSeconds = 2.0,
-                durationSeconds = 6.0,
-                trimStartSeconds = 0.0
-            ).apply {
-                text = "Smooth Slow-Mo"
-            }
-            clips[vClip.id] = vClip
-            clips[aClip.id] = aClip
-            clips[tClip.id] = tClip
+            layers.add(l6)
+            layers.add(l5)
+            layers.add(l4)
+            layers.add(l3)
+            layers.add(l2)
+            layers.add(l1)
         }
     }
 
@@ -155,6 +128,12 @@ class TimelineEngine {
     fun getAllClips(): List<Clip> = clips.values.toList()
     
     fun getAllLayers(): List<Layer> = layers.toList()
+
+    fun getActiveClips(time: Double): List<Clip> {
+        return clips.values.filter { clip ->
+            time >= clip.leftSeconds && time <= (clip.leftSeconds + clip.durationSeconds)
+        }
+    }
 
     fun getTotalDurationSeconds(): Double {
         var maxTime = 0.0

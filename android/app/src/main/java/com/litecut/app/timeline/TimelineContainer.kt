@@ -25,8 +25,6 @@ fun TimelineContainer(
         AndroidView(
             factory = { context ->
                 TimelineView(context).apply {
-                    // Pre-fill with a professional editing layout of mock tracks/clips
-                    setupDefaultMockTracks()
                     onTimelineViewCreated(this)
                 }
             },

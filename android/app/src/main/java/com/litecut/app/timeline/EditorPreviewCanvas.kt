@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 
+import coil.compose.AsyncImage
+
 /**
  * Section B: Video Preview Canvas Area for ORCA Studio.
  * Renders the video/image preview canvas with rounded corners matching React exactly.
@@ -34,6 +36,8 @@ fun EditorPreviewCanvas(
     aspectRatioString: String,
     currentTime: Double,
     selectedClipName: String?,
+    activeClipSrc: String? = null,
+    onImportClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     // Parse ratio float (Width / Height)
@@ -125,23 +129,40 @@ fun EditorPreviewCanvas(
                             ),
                         contentAlignment = Alignment.Center
                     ) {
-                        // High quality cinematic portrait visual preview matching React preview image
-                        Canvas(modifier = Modifier.fillMaxSize()) {
-                            val w = size.width
-                            val h = size.height
-
-                            // Draw subtle cinematic lighting gradient & portrait subject representation
-                            drawRect(
-                                brush = Brush.radialGradient(
-                                    colors = listOf(
-                                        Color(0xFF8D6E63).copy(alpha = 0.45f),
-                                        Color(0xFF3E2723).copy(alpha = 0.30f),
-                                        Color(0xFF121010)
-                                    ),
-                                    center = Offset(w * 0.5f, h * 0.4f),
-                                    radius = h * 0.6f
-                                )
+                        // High quality cinematic portrait visual preview or real media source
+                        if (!activeClipSrc.isNullOrBlank()) {
+                            AsyncImage(
+                                model = activeClipSrc,
+                                contentDescription = "Preview Media",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
                             )
+                        } else {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(24.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(56.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0x22FFFFFF))
+                                        .border(1.dp, Color(0x33FFFFFF), CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("+", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Light)
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = "Import Media to Start Editing",
+                                    color = Color(0xAAFFFFFF),
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
 
                         // On-Screen Bounding Box & Transform Handles if selected

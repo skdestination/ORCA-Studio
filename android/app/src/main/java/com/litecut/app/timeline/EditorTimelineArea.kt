@@ -154,14 +154,57 @@ fun EditorTimelineArea(
                                         )
 
                                         // More Options Dots
-                                        Icon(
-                                            imageVector = Icons.Default.MoreVert,
-                                            contentDescription = "Options",
-                                            tint = Color(0xFFA1A1AA),
-                                            modifier = Modifier
-                                                .size(12.dp)
-                                                .clickable { showTrackOptions = !showTrackOptions }
-                                        )
+                                        Box {
+                                            Icon(
+                                                imageVector = Icons.Default.MoreVert,
+                                                contentDescription = "Options",
+                                                tint = Color(0xFFA1A1AA),
+                                                modifier = Modifier
+                                                    .size(12.dp)
+                                                    .clickable { showTrackOptions = !showTrackOptions }
+                                            )
+
+                                            DropdownMenu(
+                                                expanded = showTrackOptions,
+                                                onDismissRequest = { showTrackOptions = false },
+                                                modifier = Modifier.background(Color(0xFF18181C))
+                                            ) {
+                                                DropdownMenuItem(
+                                                    text = { Text("Move Up", color = Color.White, fontSize = 11.sp) },
+                                                    onClick = {
+                                                        showTrackOptions = false
+                                                        if (index > 0) {
+                                                            val prev = layersState[index - 1]
+                                                            val temp = layer.order
+                                                            layer.order = prev.order
+                                                            prev.order = temp
+                                                            refreshLayers()
+                                                        }
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Move Down", color = Color.White, fontSize = 11.sp) },
+                                                    onClick = {
+                                                        showTrackOptions = false
+                                                        if (index < layersState.size - 1) {
+                                                            val next = layersState[index + 1]
+                                                            val temp = layer.order
+                                                            layer.order = next.order
+                                                            next.order = temp
+                                                            refreshLayers()
+                                                        }
+                                                    }
+                                                )
+                                                DropdownMenuItem(
+                                                    text = { Text("Delete Track", color = Color(0xFFEF4444), fontSize = 11.sp) },
+                                                    onClick = {
+                                                        showTrackOptions = false
+                                                        engine.removeLayer(layer.id)
+                                                        refreshLayers()
+                                                    }
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }

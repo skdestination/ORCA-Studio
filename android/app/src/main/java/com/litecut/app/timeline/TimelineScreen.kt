@@ -76,6 +76,37 @@ fun TimelineScreen(
         storagePermissionLauncher.launch(permissionsToRequest)
     }
 
+    val systemMediaPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: android.net.Uri? ->
+        uri?.let {
+            val track = engine.getAllLayers().find { l -> l.name?.contains("Main", ignoreCase = true) == true }
+                ?: engine.getAllLayers().firstOrNull()
+            if (track != null) {
+                val mimeType = context.contentResolver.getType(it) ?: ""
+                val isAudio = mimeType.startsWith("audio")
+                val isImage = mimeType.startsWith("image")
+                val newClip = Clip(
+                    id = "clip_${System.currentTimeMillis()}",
+                    layerId = track.id,
+                    type = when {
+                        isAudio -> ClipType.AUDIO
+                        isImage -> ClipType.IMAGE
+                        else -> ClipType.VIDEO
+                    },
+                    src = it.toString(),
+                    name = it.lastPathSegment?.takeLast(20) ?: "Imported Media",
+                    leftSeconds = engine.currentTime,
+                    durationSeconds = if (isImage) 5.0 else 10.0,
+                    trimStartSeconds = 0.0
+                )
+                engine.executeCommand(CreateClipCommand(newClip))
+                engine.selectedClipIds.clear()
+                engine.selectedClipIds.add(newClip.id)
+            }
+        }
+    }
+
     var activeControlMenu by remember { mutableStateOf<String?>(null) }
 
     // Periodically poll playhead state for UI display synchronization
@@ -143,14 +174,22 @@ fun TimelineScreen(
                             .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        val activeClipName = if (selectedClipIds.isNotEmpty()) {
-                            engine.getClip(selectedClipIds.first())?.name
-                        } else null
+                        val activeClipsAtTime = engine.getActiveClips(currentTime)
+                        val topActiveClip = activeClipsAtTime.lastOrNull { it.type == ClipType.VIDEO || it.type == ClipType.IMAGE }
+                            ?: activeClipsAtTime.lastOrNull()
+                        val activeClipSrc = topActiveClip?.src ?: if (selectedClipIds.isNotEmpty()) engine.getClip(selectedClipIds.first())?.src else null
 
                         EditorPreviewCanvas(
                             aspectRatioString = currentProjectRatio,
                             currentTime = currentTime,
-                            selectedClipName = activeClipName,
+                            selectedClipName = topActiveClip?.name ?: if (selectedClipIds.isNotEmpty()) engine.getClip(selectedClipIds.first())?.name else null,
+                            activeClipSrc = activeClipSrc,
+                            onImportClick = {
+                                if (!isMediaPermissionGranted) {
+                                    requestStoragePermissions()
+                                }
+                                systemMediaPickerLauncher.launch("*/*")
+                            },
                             modifier = Modifier.fillMaxSize()
                         )
                     }
@@ -223,7 +262,7 @@ fun TimelineScreen(
                             if (!isMediaPermissionGranted) {
                                 requestStoragePermissions()
                             }
-                            isMediaDrawerOpen = true
+                            systemMediaPickerLauncher.launch("*/*")
                         },
                         onVoiceoverClick = { activeControlMenu = if (activeControlMenu == "voiceover") null else "voiceover" },
                         onVolumeClick = { activeControlMenu = if (activeControlMenu == "volume") null else "volume" },
