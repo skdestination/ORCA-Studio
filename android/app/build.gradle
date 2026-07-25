@@ -52,11 +52,10 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation 'com.quickbirdstudios:opencv:4.5.3.0'
-    implementation project(':capacitor-android')
-    testImplementation "junit:junit:$junitVersion"
-    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
-    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
-    implementation project(':capacitor-cordova-android-plugins')
+    if (file('../../node_modules/@capacitor/android').exists()) {
+        implementation project(':capacitor-android')
+        implementation project(':capacitor-cordova-android-plugins')
+    }
 
     // Jetpack Compose Dependencies
     implementation "androidx.compose.ui:ui:1.4.3"
@@ -74,9 +73,14 @@ dependencies {
     implementation platform('com.google.firebase:firebase-bom:33.1.1')
     implementation 'com.google.firebase:firebase-crashlytics'
     implementation 'com.google.firebase:firebase-analytics'
+testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
 }
 
-apply from: 'capacitor.build.gradle'
+if (file('../../node_modules/@capacitor/android').exists()) {
+    apply from: 'capacitor.build.gradle'
+}
 
 try {
     def servicesJSON = file('google-services.json')
