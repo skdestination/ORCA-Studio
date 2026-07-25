@@ -60,6 +60,15 @@ object TimelineTheme {
     var playheadHeadColor: Int = 0xFFFF2D55.toInt()       // Crimson pointer top
     var playheadLineWidth: Float = 1f                     // Playhead line width (1px in React)
 
+    // Convenience properties for TimelineRenderer
+    val clipVideoColor: Int get() = clipVideoStartColor
+    val clipAudioColor: Int get() = clipAudioStartColor
+    val clipTextColor: Int get() = clipTextStartColor
+    val clipImageColor: Int get() = clipImageStartColor
+    val clipBorderColor: Int get() = clipBorderColorVideo
+    val selectionBorderColor: Int get() = selBorderColorVideo
+    var selectionBorderWidth: Float = 2f
+
     // Clip Label Font Settings
     var clipLabelColor: Int = 0xFFFFFFFF.toInt()          // Text on top of clips
     var clipLabelSize: Float = 10f                        // Font size of clip text label

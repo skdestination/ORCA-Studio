@@ -1,5 +1,6 @@
 package com.litecut.app.timeline
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -225,10 +227,12 @@ fun EditorTimelineArea(
                             .align(Alignment.TopCenter)
                             .size(10.dp)
                     ) {
-                        val path = androidx.compose.ui.graphics.Path().apply {
+                        val w = drawContext.size.width
+                        val h = drawContext.size.height
+                        val path = Path().apply {
                             moveTo(0f, 0f)
-                            lineTo(size.width, 0f)
-                            lineTo(size.width / 2f, size.height)
+                            lineTo(w, 0f)
+                            lineTo(w / 2f, h)
                             close()
                         }
                         drawPath(path, color = Color(0xFFFF2D55))
