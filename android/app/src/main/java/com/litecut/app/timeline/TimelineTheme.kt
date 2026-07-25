@@ -24,20 +24,36 @@ object TimelineTheme {
     var rulerTextColor: Int = 0x88A1A1AA.toInt()          // Label colors (zinc-400)
     var rulerTextSize: Float = 10f                        // Text size for ruler times (10sp)
 
-    // Clip Card Styling by Type matching React Preview
-    var clipVideoColor: Int = 0xFF0D1E3D.toInt()          // Deep blue video clip gradient start
-    var clipVideoEndColor: Int = 0xFF122B5E.toInt()       // Deep blue video clip gradient end
-    var clipAudioColor: Int = 0xFF21103D.toInt()          // Deep purple audio clip gradient start
-    var clipAudioEndColor: Int = 0xFF3B1263.toInt()       // Deep purple audio clip gradient end
-    var clipTextColor: Int = 0xFF441F05.toInt()           // Warm amber text clip gradient start
-    var clipTextEndColor: Int = 0xFF632900.toInt()        // Warm amber text clip gradient end
-    var clipImageColor: Int = 0xFF032A19.toInt()          // Dark emerald image clip gradient start
-    var clipImageEndColor: Int = 0xFF0C4029.toInt()       // Dark emerald image clip gradient end
-    var clipBorderColor: Int = 0x1AFFFFFF                 // Subtle border for unselected clips
+    // Unselected Clip Card Gradients (bg-gradient-to-r)
+    var clipVideoStartColor: Int = 0xFF0D1E3D.toInt()
+    var clipVideoEndColor: Int = 0xFF122B5E.toInt()
+    var clipAudioStartColor: Int = 0xFF21103D.toInt()
+    var clipAudioEndColor: Int = 0xFF3B1263.toInt()
+    var clipTextStartColor: Int = 0xFF441F05.toInt()
+    var clipTextEndColor: Int = 0xFF632900.toInt()
+    var clipImageStartColor: Int = 0xFF032A19.toInt()
+    var clipImageEndColor: Int = 0xFF0C4029.toInt()
 
-    // Selection Highlight
-    var selectionBorderColor: Int = 0xFF60A5FA.toInt()    // Vibrant indigo/blue highlight (#60A5FA)
-    var selectionBorderWidth: Float = 2f                  // Border width for selections
+    // Selected Clip Card Gradients
+    var clipVideoSelStartColor: Int = 0xFF1E40AF.toInt()
+    var clipVideoSelEndColor: Int = 0xFF1D4ED8.toInt()
+    var clipAudioSelStartColor: Int = 0xFF5A21B3.toInt()
+    var clipAudioSelEndColor: Int = 0xFF4C1D95.toInt()
+    var clipTextSelStartColor: Int = 0xFFB45309.toInt()
+    var clipTextSelEndColor: Int = 0xFFD97706.toInt()
+    var clipImageSelStartColor: Int = 0xFF047857.toInt()
+    var clipImageSelEndColor: Int = 0xFF065F46.toInt()
+
+    // Borders
+    var clipBorderColorVideo: Int = 0x336366F1.toInt() // indigo-500/20
+    var clipBorderColorAudio: Int = 0x33A855F7.toInt() // purple-500/20
+    var clipBorderColorText: Int = 0x33F59E0B.toInt()  // amber-500/20
+    var clipBorderColorImage: Int = 0x3310B981.toInt() // emerald-500/20
+
+    var selBorderColorVideo: Int = 0xFF60A5FA.toInt()  // blue-400
+    var selBorderColorAudio: Int = 0xFFC084FC.toInt()  // purple-400
+    var selBorderColorText: Int = 0xFFFBBF24.toInt()   // amber-400
+    var selBorderColorImage: Int = 0xFF34D399.toInt()  // emerald-400
 
     // Playhead Styling
     var playheadLineColor: Int = 0xFFFF2D55.toInt()       // Crimson indicator line

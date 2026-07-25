@@ -1954,7 +1954,7 @@ export default function App() {
     const settings = copiedSettings[type as keyof typeof copiedSettings];
     if (!settings) return;
 
-    updateClipsProperties([selectedClipId], settings);
+    updateClipsProperties([selectedClipId], settings as Partial<Clip>);
   };
 
   const renderCopyPasteButtons = (menuType: string) => {
@@ -2188,8 +2188,8 @@ export default function App() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timelineScrollRef = useRef<HTMLDivElement>(null);
-  const animationFrameRef = useRef<number>();
-  const lastTimeRef = useRef<number>();
+  const animationFrameRef = useRef<number | undefined>(undefined);
+  const lastTimeRef = useRef<number | undefined>(undefined);
 
 
   // Real-time synchronization
@@ -4476,7 +4476,7 @@ export default function App() {
 
   const renderSettings = () => (
     <SettingsPanel
-      setCurrentScreen={setCurrentScreen}
+      setCurrentScreen={(s: string) => setCurrentScreen(s as Screen)}
       flowBarOrder={flowBarOrder}
       getFlowBarItemLabel={getFlowBarItemLabel}
       handleMoveFlowBarItem={handleMoveFlowBarItem}
@@ -4495,7 +4495,7 @@ const renderHome = () => {
       setSortBy={setSortBy}
       isSortMenuOpen={isSortMenuOpen}
       setIsSortMenuOpen={setIsSortMenuOpen}
-      setCurrentScreen={setCurrentScreen}
+      setCurrentScreen={(s: string) => setCurrentScreen(s as Screen)}
       isFullscreen={isFullscreen}
       toggleFullscreen={toggleFullscreen}
       openProject={openProject}
@@ -5234,7 +5234,7 @@ const renderEditor = () => (
                                  className="media-preview-container absolute pointer-events-none select-none overflow-visible max-w-full max-h-full flex items-center justify-center relative shadow-lg"
                                  style={{
                                       ...transformStyle,
-                                      ...(activeClip.cropRatio && activeClip.cropRatio !== "None" ? {
+                                      ...(activeClip.cropRatio && (activeClip.cropRatio as any) !== "None" ? {
                                          width: activeClip.cropRatio === "16:9" ? "100%" : activeClip.cropRatio === "9:16" ? "auto" : activeClip.cropRatio === "1:1" ? "auto" : "100%",
                                          height: activeClip.cropRatio ? (activeClip.cropRatio === "16:9" ? "auto" : activeClip.cropRatio === "9:16" ? "100%" : activeClip.cropRatio === "1:1" ? "100%" : "100%") : '100%',
                                       } : activeClip.width && activeClip.height ? {
@@ -7597,7 +7597,7 @@ const renderEditor = () => (
                   setActiveExpandedMenu={setActiveExpandedMenu}
                   setToastMessage={setToastMessage}
                   activeTransformTab={activeTransformTab}
-                  setActiveTransformTab={setActiveTransformTab}
+                  setActiveTransformTab={(tab: string) => setActiveTransformTab(tab as any)}
                 />
               )}
               {activeExpandedMenu === "blend" && selectedClipId && (
@@ -8414,7 +8414,7 @@ const renderEditor = () => (
                       </motion.button>
                     );
                     case 'magic': return (
-                      <motion.button key={key} layout className={`p-1 shrink-0 rounded-full transition-colors snap-start flex items-center justify-center ${selectedClipId ? "hover:bg-zinc-700 text-white" : "opacity-30"}`} disabled={!selectedClipId} onClick={handleSmoothSlowMo}><Wand2 size={14} /></motion.button>
+                      <motion.button key={key} layout className={`p-1 shrink-0 rounded-full transition-colors snap-start flex items-center justify-center ${selectedClipId ? "hover:bg-zinc-700 text-white" : "opacity-30"}`} disabled={!selectedClipId} onClick={() => handleSmoothSlowMo()}><Wand2 size={14} /></motion.button>
                     );
                     case 'activity': return (
                       <motion.button key={key} layout className={`p-1 shrink-0 rounded-full transition-colors snap-start flex items-center justify-center ${selectedClipId ? (activeExpandedMenu === "blend" ? "bg-zinc-700 text-white" : "hover:bg-zinc-700 text-white") : "opacity-30"}`} disabled={!selectedClipId} onClick={() => setActiveExpandedMenu(activeExpandedMenu === "blend" ? null : "blend")}><Blend size={14} /></motion.button>

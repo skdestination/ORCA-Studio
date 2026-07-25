@@ -121,7 +121,7 @@ export type Clip = {
   maskMediaTranslateY?: number;
   maskMediaScale?: number;
 
-  cropRatio?: "1:1" | "16:9" | "9:16" | "4:3" | "free" | null;
+  cropRatio?: "1:1" | "16:9" | "9:16" | "4:3" | "free" | "None" | null;
   cropRect?: { top: number, right: number, bottom: number, left: number };
   mixBlendMode?: "normal" | "multiply" | "screen" | "overlay" | "darken" | "lighten" | "color-dodge" | "color-burn" | "hard-light" | "soft-light" | "difference" | "exclusion" | "hue" | "saturation" | "color" | "luminosity";
   keyframes?: Keyframe[];
@@ -130,9 +130,19 @@ export type Clip = {
     duration: number;
   };
   isStabilized?: boolean;
+  stabilizeMode?: string;
   stabilizationMode?: "standard" | "active" | "locked" | "off";
   stabilizationStrength?: number;
   compareStabilization?: boolean;
+  positionX?: number;
+  positionY?: number;
+  anchorX?: number;
+  anchorY?: number;
+  cropX?: number;
+  cropY?: number;
+  cropW?: number;
+  cropH?: number;
+  dbFileId?: string;
   isReversed?: boolean;
   thumbnail?: string;
   motionIn?: "None" | "Fade In" | "Slide In" | "Zoom In" | "Bounce In";

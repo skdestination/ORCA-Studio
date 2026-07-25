@@ -10,6 +10,7 @@ interface MotionPanelProps {
   renderCopyPasteButtons: (type: string) => React.ReactNode;
   setActiveExpandedMenu: (menu: string | null) => void;
   showToast: (message: string) => void;
+  playInstantPreview?: (clipId: string, type: "in" | "out" | "overall" | "motionIn" | "motionOut") => void;
 }
 
 export const MotionPanel: React.FC<MotionPanelProps> = ({

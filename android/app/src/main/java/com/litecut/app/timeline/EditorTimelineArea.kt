@@ -219,13 +219,20 @@ fun EditorTimelineArea(
                         .fillMaxHeight()
                         .align(Alignment.Center)
                 ) {
-                    // Polygon top indicator cap
-                    Box(
+                    // Polygon top indicator cap (triangle pointing down)
+                    Canvas(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .size(10.dp)
-                            .background(Color(0xFFFF2D55), RoundedCornerShape(2.dp))
-                    )
+                    ) {
+                        val path = androidx.compose.ui.graphics.Path().apply {
+                            moveTo(0f, 0f)
+                            lineTo(size.width, 0f)
+                            lineTo(size.width / 2f, size.height)
+                            close()
+                        }
+                        drawPath(path, color = Color(0xFFFF2D55))
+                    }
 
                     // Thin 1px Crimson Red Playhead Line traversing all tracks
                     Box(

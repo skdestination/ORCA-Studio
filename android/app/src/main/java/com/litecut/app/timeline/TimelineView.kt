@@ -39,7 +39,7 @@ class TimelineView @JvmOverloads constructor(
 
     init {
         // Enforce hardware acceleration layer for high-performance canvas rendering
-        setLayerType(LAYER_TYPE_HARDWARE, null)
+        setLayerType(View.LAYER_TYPE_HARDWARE, null)
         com.litecut.app.timeline.thumbnail.ThumbnailEngine.getInstance(context).registerViewport(viewport)
     }
 

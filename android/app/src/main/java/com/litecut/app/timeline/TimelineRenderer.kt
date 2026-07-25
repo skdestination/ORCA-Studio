@@ -110,7 +110,6 @@ class TimelineRenderer {
             // Find layer vertical position
             val layerIndex = sortedLayers.indexOfFirst { it.id == clip.layerId }
             if (layerIndex == -1) continue
-
             val clipY = headerHeight + layerIndex * (trackHeight + trackSpacing) - viewport.scrollY.toFloat()
             val clipBottom = clipY + trackHeight
 
@@ -127,20 +126,39 @@ class TimelineRenderer {
                 continue
             }
 
-            // Select color based on clip type
+            val isSelected = engine.selectedClipIds.contains(clip.id)
+            
+            // Select paint and gradient based on clip type
             val clipPaint = when (clip.type) {
                 ClipType.VIDEO -> clipVideoPaint
-                ClipType.AUDIO -> {
-                    val wEngine = WaveformEngine.getInstance(view.context)
-                    val trackType = wEngine.getAudioTrackType(clip)
-                    val trackColor = wEngine.getTrackColor(trackType)
-                    // Semi-transparent deep dark background card blended with track color
-                    val blendedColor = (trackColor and 0x00FFFFFF) or (0x1F shl 24)
-                    clipAudioPaint.apply { color = blendedColor }
-                }
+                ClipType.AUDIO -> clipAudioPaint
                 ClipType.TEXT -> clipTextPaint
                 ClipType.IMAGE -> clipImagePaint
             }
+            
+            // Configure Gradients and Borders
+            val startColor: Int
+            val endColor: Int
+            if (isSelected) {
+                when (clip.type) {
+                    ClipType.VIDEO -> { startColor = TimelineTheme.clipVideoSelStartColor; endColor = TimelineTheme.clipVideoSelEndColor; selectionBorderPaint.color = TimelineTheme.selBorderColorVideo }
+                    ClipType.AUDIO -> { startColor = TimelineTheme.clipAudioSelStartColor; endColor = TimelineTheme.clipAudioSelEndColor; selectionBorderPaint.color = TimelineTheme.selBorderColorAudio }
+                    ClipType.TEXT -> { startColor = TimelineTheme.clipTextSelStartColor; endColor = TimelineTheme.clipTextSelEndColor; selectionBorderPaint.color = TimelineTheme.selBorderColorText }
+                    ClipType.IMAGE -> { startColor = TimelineTheme.clipImageSelStartColor; endColor = TimelineTheme.clipImageSelEndColor; selectionBorderPaint.color = TimelineTheme.selBorderColorImage }
+                }
+            } else {
+                when (clip.type) {
+                    ClipType.VIDEO -> { startColor = TimelineTheme.clipVideoStartColor; endColor = TimelineTheme.clipVideoEndColor; clipBorderPaint.color = TimelineTheme.clipBorderColorVideo }
+                    ClipType.AUDIO -> { startColor = TimelineTheme.clipAudioStartColor; endColor = TimelineTheme.clipAudioEndColor; clipBorderPaint.color = TimelineTheme.clipBorderColorAudio }
+                    ClipType.TEXT -> { startColor = TimelineTheme.clipTextStartColor; endColor = TimelineTheme.clipTextEndColor; clipBorderPaint.color = TimelineTheme.clipBorderColorText }
+                    ClipType.IMAGE -> { startColor = TimelineTheme.clipImageStartColor; endColor = TimelineTheme.clipImageEndColor; clipBorderPaint.color = TimelineTheme.clipBorderColorImage }
+                }
+            }
+
+            clipPaint.shader = android.graphics.LinearGradient(
+                leftX, clipY + TimelineTheme.clipInnerMargin, leftX, clipBottom - TimelineTheme.clipInnerMargin,
+                startColor, endColor, android.graphics.Shader.TileMode.CLAMP
+            )
 
             val isBeingDragged = view.isDragging && clip.id == view.draggedClipId
             
@@ -158,8 +176,9 @@ class TimelineRenderer {
             }
 
             // Draw clip background card
-            tempRect.set(leftX, clipY + 4f, rightX, clipBottom - 4f)
-            canvas.drawRoundRect(tempRect, clipCornerRadius, clipCornerRadius, clipPaint)
+            val cRadius = if (clip.type == ClipType.AUDIO) TimelineTheme.audioClipCornerRadius else TimelineTheme.clipCornerRadius
+            tempRect.set(leftX, clipY + TimelineTheme.clipInnerMargin, rightX, clipBottom - TimelineTheme.clipInnerMargin)
+            canvas.drawRoundRect(tempRect, cRadius, cRadius, clipPaint)
 
             // Draw audio waveforms for AUDIO clips, or filmstrips for VIDEO/IMAGE clips
             if (clip.type == ClipType.AUDIO) {
@@ -239,11 +258,11 @@ class TimelineRenderer {
                 }
             }
 
-            canvas.drawRoundRect(tempRect, clipCornerRadius, clipCornerRadius, clipBorderPaint)
+            canvas.drawRoundRect(tempRect, cRadius, cRadius, clipBorderPaint)
 
             // Draw selection borders if highlighted
-            if (engine.selectedClipIds.contains(clip.id)) {
-                canvas.drawRoundRect(tempRect, clipCornerRadius, clipCornerRadius, selectionBorderPaint)
+            if (isSelected) {
+                canvas.drawRoundRect(tempRect, cRadius, cRadius, selectionBorderPaint)
             }
 
             // Keyframe Polyline Slope Overlay
@@ -553,9 +572,7 @@ class TimelineRenderer {
             playheadPath.reset()
             playheadPath.moveTo(playheadX - 5f, 0f)
             playheadPath.lineTo(playheadX + 5f, 0f)
-            playheadPath.lineTo(playheadX + 5f, 6f)
             playheadPath.lineTo(playheadX, 10f)
-            playheadPath.lineTo(playheadX - 5f, 6f)
             playheadPath.close()
             canvas.drawPath(playheadPath, playheadHeadPaint)
         }
