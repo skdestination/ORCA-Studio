@@ -1,5 +1,5 @@
 workflows:
-  android-native-build:
+  android-build:
     name: Native Jetpack Compose Android Build
     max_build_duration: 120
     instance_type: mac_mini_m1
