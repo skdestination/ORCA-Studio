@@ -15,12 +15,12 @@ object TimelineTheme {
     // Core Colors matching React App (#0c0c0e)
     var backgroundColor: Int = 0xFF0C0C0E.toInt()         // Dark canvas background
     var trackBackgroundColor: Int = 0xFF0C0C0E.toInt()    // Subtle track lane background
-    var trackSeparatorColor: Int = 0x0AFFFFFF.toInt()     // 3% opacity white border line between lanes
+    var trackSeparatorColor: Int = 0x0AFFFFFF             // 3% opacity white border line between lanes
     var headerBackgroundColor: Int = 0xF20C0C0E.toInt()   // Time ruler background (95% opacity)
-    var headerBorderColor: Int = 0x0DFFFFFF.toInt()       // Border line below ruler
+    var headerBorderColor: Int = 0x0DFFFFFF               // Border line below ruler
 
     // Ruler Grid Colors
-    var rulerTickColor: Int = 0x33FFFFFF.toInt()          // Tick marks color
+    var rulerTickColor: Int = 0x33FFFFFF                  // Tick marks color
     var rulerTextColor: Int = 0x88A1A1AA.toInt()          // Label colors (zinc-400)
     var rulerTextSize: Float = 10f                        // Text size for ruler times (10sp)
 
@@ -45,15 +45,15 @@ object TimelineTheme {
     var clipImageSelEndColor: Int = 0xFF065F46.toInt()
 
     // Borders
-    var clipBorderColorVideo: Int = 0x336366F1.toInt() // indigo-500/20
-    var clipBorderColorAudio: Int = 0x33A855F7.toInt() // purple-500/20
-    var clipBorderColorText: Int = 0x33F59E0B.toInt()  // amber-500/20
-    var clipBorderColorImage: Int = 0x3310B981.toInt() // emerald-500/20
+    var clipBorderColorVideo: Int = 0x336366F1
+    var clipBorderColorAudio: Int = 0x33A855F7
+    var clipBorderColorText: Int = 0x33F59E0B
+    var clipBorderColorImage: Int = 0x3310B981
 
-    var selBorderColorVideo: Int = 0xFF60A5FA.toInt()  // blue-400
-    var selBorderColorAudio: Int = 0xFFC084FC.toInt()  // purple-400
-    var selBorderColorText: Int = 0xFFFBBF24.toInt()   // amber-400
-    var selBorderColorImage: Int = 0xFF34D399.toInt()  // emerald-400
+    var selBorderColorVideo: Int = 0xFF60A5FA.toInt()
+    var selBorderColorAudio: Int = 0xFFC084FC.toInt()
+    var selBorderColorText: Int = 0xFFFBBF24.toInt()
+    var selBorderColorImage: Int = 0xFF34D399.toInt()
 
     // Playhead Styling
     var playheadLineColor: Int = 0xFFFF2D55.toInt()       // Crimson indicator line
