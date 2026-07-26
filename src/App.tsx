@@ -7828,64 +7828,49 @@ const renderEditor = () => (
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 10 }}
                   transition={{ duration: 0.2 }}
-                  className="w-full flex items-center p-2 z-10 sticky bottom-0"
-                  style={{marginBottom: -10}}
+                  className="flex items-center gap-3 w-full bg-zinc-800/95 rounded-full border border-white/10 shadow-xl px-3 py-2 z-10 my-1"
                 >
-                  <div 
-                    className="flex items-center gap-3 w-full bg-zinc-800/95 rounded-full border border-white/10 shadow-xl"
-                    style={{
-                      paddingLeft: "12px",
-                      paddingTop: "8px",
-                      paddingBottom: "10px",
-                      paddingRight: "11px",
-                      marginLeft: "0px",
-                      marginTop: "-4px",
-                      marginBottom: "8px",
-                      marginRight: "0px"
-                    }}
-                  >
-                    <div className="relative group cursor-pointer shrink-0" onClick={handleRecordClick}>
-                      {isRecording ? (
-                        <>
-                          <div className="absolute inset-0 bg-red-500/40 rounded-full blur-[12px] animate-pulse transition-all duration-500" />
-                          <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center animate-pulse z-10 border border-white/40 relative">
-                            <div className="w-2.5 h-2.5 bg-white rounded-sm" />
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="absolute inset-0 bg-red-500/20 rounded-full blur-[8px] transition-all duration-500" />
-                          <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center group-hover:scale-105 group-active:scale-95 transition-all duration-300 z-10 border border-white/20 relative">
-                            <Mic size={14} className="text-white" />
-                          </div>
-                        </>
-                      )}
-                    </div>
-                    
-                    <div className="flex-1 flex flex-col justify-center overflow-hidden">
-                      <span className="text-[9px] font-bold text-white/60 tracking-widest uppercase mb-1">
-                        {isRecording ? "Recording..." : "Tap To Record"}
-                      </span>
-                      <div className="flex items-end gap-[2px] h-3">
-                          {liveMicLevels.map((amplitude, i) => {
-                            return (
-                              <div
-                                key={i}
-                                className={`flex-1 rounded-full transition-all duration-150 ${isRecording ? 'bg-red-500' : 'bg-white/20'}`}
-                                style={{ height: `${Math.min(100, Math.max(15, amplitude))}%`, minHeight: '2px' }}
-                              />
-                            );
-                          })}
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => setActiveExpandedMenu(null)}
-                      className="text-zinc-400 hover:text-white rounded-full p-2 shrink-0 transition-all bg-zinc-700/50 hover:bg-zinc-700"
-                    >
-                      <X size={12} />
-                    </button>
+                  <div className="relative group cursor-pointer shrink-0" onClick={handleRecordClick}>
+                    {isRecording ? (
+                      <>
+                        <div className="absolute inset-0 bg-red-500/40 rounded-full blur-[12px] animate-pulse transition-all duration-500" />
+                        <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center animate-pulse z-10 border border-white/40 relative">
+                          <div className="w-2.5 h-2.5 bg-white rounded-sm" />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="absolute inset-0 bg-red-500/20 rounded-full blur-[8px] transition-all duration-500" />
+                        <div className="w-8 h-8 rounded-full bg-red-600 flex items-center justify-center group-hover:scale-105 group-active:scale-95 transition-all duration-300 z-10 border border-white/20 relative">
+                          <Mic size={14} className="text-white" />
+                        </div>
+                      </>
+                    )}
                   </div>
+                  
+                  <div className="flex-1 flex flex-col justify-center overflow-hidden">
+                    <span className="text-[9px] font-bold text-white/60 tracking-widest uppercase mb-0.5">
+                      {isRecording ? "Recording..." : "Tap To Record"}
+                    </span>
+                    <div className="flex items-end gap-[2px] h-3">
+                        {liveMicLevels.map((amplitude, i) => {
+                          return (
+                            <div
+                              key={i}
+                              className={`flex-1 rounded-full transition-all duration-150 ${isRecording ? 'bg-red-500' : 'bg-white/20'}`}
+                              style={{ height: `${Math.min(100, Math.max(15, amplitude))}%`, minHeight: '2px' }}
+                            />
+                          );
+                        })}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setActiveExpandedMenu(null)}
+                    className="text-zinc-400 hover:text-white rounded-full p-2 shrink-0 transition-all bg-zinc-700/50 hover:bg-zinc-700"
+                  >
+                    <X size={12} />
+                  </button>
                 </motion.div>
               )}
               {activeExpandedMenu === "keyframe-interpolation" && selectedClipId && isBetweenKeyframes && (
