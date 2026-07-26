@@ -15,12 +15,12 @@ object TimelineTheme {
     // Core Colors matching React App (#0c0c0e)
     var backgroundColor: Int = 0xFF0C0C0E.toInt()         // Dark canvas background
     var trackBackgroundColor: Int = 0xFF0C0C0E.toInt()    // Subtle track lane background
-    var trackSeparatorColor: Int = 0x0AFFFFFF             // 3% opacity white border line between lanes
+    var trackSeparatorColor: Int = 0x0AFFFFFF.toInt()     // 3% opacity white border line between lanes
     var headerBackgroundColor: Int = 0xF20C0C0E.toInt()   // Time ruler background (95% opacity)
-    var headerBorderColor: Int = 0x0DFFFFFF               // Border line below ruler
+    var headerBorderColor: Int = 0x0DFFFFFF.toInt()       // Border line below ruler
 
     // Ruler Grid Colors
-    var rulerTickColor: Int = 0x33FFFFFF                  // Tick marks color
+    var rulerTickColor: Int = 0x33FFFFFF.toInt()          // Tick marks color
     var rulerTextColor: Int = 0x88A1A1AA.toInt()          // Label colors (zinc-400)
     var rulerTextSize: Float = 10f                        // Text size for ruler times (10sp)
 
