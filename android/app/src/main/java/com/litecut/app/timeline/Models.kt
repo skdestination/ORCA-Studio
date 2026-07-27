@@ -211,20 +211,24 @@ data class Clip(
 }
 
 // --- Clip Extension Properties for Animation & Composition Engine ---
-val Clip.opacity: Float
+var Clip.opacity: Float
     get() = (additionalProperties["opacity"] as? Number)?.toFloat() ?: 1.0f
+    set(value) { additionalProperties["opacity"] = value }
 
-val Clip.scale: Float
+var Clip.scale: Float
     get() = (additionalProperties["scale"] as? Number)?.toFloat() ?: 1.0f
+    set(value) { additionalProperties["scale"] = value }
 
-val Clip.rotation: Float
+var Clip.rotation: Float
     get() = (additionalProperties["rotation"] as? Number)?.toFloat() ?: 0.0f
+    set(value) { additionalProperties["rotation"] = value }
 
-val Clip.mute: Boolean
+var Clip.mute: Boolean
     get() = (additionalProperties["mute"] as? Boolean) ?: ((additionalProperties["mute"] as? Number)?.toDouble() ?: 0.0 > 0.5)
+    set(value) { additionalProperties["mute"] = value }
 
-var Clip.text: String?
-    get() = additionalProperties["text"] as? String
+var Clip.text: String
+    get() = (additionalProperties["text"] as? String) ?: (name ?: "")
     set(value) { additionalProperties["text"] = value }
 
 var Clip.volume: Float
