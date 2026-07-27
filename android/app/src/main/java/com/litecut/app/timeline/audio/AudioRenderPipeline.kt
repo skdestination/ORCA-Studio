@@ -1,7 +1,5 @@
 package com.litecut.app.timeline.audio
 
-import android.media.AudioTrack
-
 import com.litecut.app.timeline.Clip
 import com.litecut.app.timeline.TimelineEngine
 import com.litecut.app.timeline.tasks.TaskPriority

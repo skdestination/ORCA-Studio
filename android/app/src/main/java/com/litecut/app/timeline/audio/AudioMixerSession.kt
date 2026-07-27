@@ -1,7 +1,5 @@
 package com.litecut.app.timeline.audio
 
-import android.media.AudioTrack
-
 import com.litecut.app.timeline.resources.ManagedCache
 import com.litecut.app.timeline.resources.ResourceManager
 import java.util.concurrent.ConcurrentHashMap
