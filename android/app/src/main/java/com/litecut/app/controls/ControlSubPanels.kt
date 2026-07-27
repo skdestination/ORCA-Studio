@@ -21,13 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.litecut.app.timeline.Clip
-
-import com.litecut.app.timeline.brightness
-import com.litecut.app.timeline.contrast
-import com.litecut.app.timeline.saturation
-import com.litecut.app.timeline.temperature
-import com.litecut.app.timeline.volume
-import com.litecut.app.timeline.text
 import com.litecut.app.timeline.BezierCurve
 
 import android.Manifest
