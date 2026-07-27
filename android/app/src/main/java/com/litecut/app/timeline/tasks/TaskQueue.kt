@@ -1,5 +1,7 @@
 package com.litecut.app.timeline.tasks
 
+import kotlin.jvm.Synchronized
+
 import java.util.concurrent.ConcurrentHashMap
 
 class TaskQueue {

@@ -1,5 +1,7 @@
 package com.litecut.app.timeline
 
+import kotlin.jvm.Synchronized
+
 import android.os.Handler
 import android.os.Looper
 

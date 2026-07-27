@@ -1,5 +1,7 @@
 package com.litecut.app.timeline
 
+import kotlin.jvm.Volatile
+
 import android.util.Log
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ConcurrentHashMap

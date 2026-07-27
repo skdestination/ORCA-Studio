@@ -1,5 +1,8 @@
 package com.litecut.app.timeline
 
+import kotlin.jvm.Volatile
+import kotlin.jvm.Synchronized
+
 import android.graphics.Bitmap
 import android.opengl.GLES20
 import android.opengl.GLUtils

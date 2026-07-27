@@ -1,5 +1,8 @@
 package com.litecut.app.timeline
 
+import kotlin.jvm.Volatile
+import kotlin.jvm.Synchronized
+
 import android.content.Context
 import android.util.Log
 import com.litecut.app.timeline.audio.WaveformEngine

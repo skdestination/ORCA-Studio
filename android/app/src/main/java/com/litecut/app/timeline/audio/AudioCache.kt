@@ -1,5 +1,7 @@
 package com.litecut.app.timeline.audio
 
+import kotlin.jvm.Volatile
+
 import com.litecut.app.timeline.resources.ManagedCache
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong

@@ -1,5 +1,7 @@
 package com.litecut.app.timeline
 
+import kotlin.jvm.Volatile
+
 import android.os.Handler
 import android.os.Looper
 import android.view.Choreographer

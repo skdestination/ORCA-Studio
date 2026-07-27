@@ -1,5 +1,7 @@
 package com.litecut.app.timeline.resources
 
+import kotlin.jvm.Synchronized
+
 import android.util.Log
 
 class MemoryBudget(val totalMaxMemoryBytes: Long) {

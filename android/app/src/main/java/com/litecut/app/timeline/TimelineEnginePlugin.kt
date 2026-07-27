@@ -1,5 +1,7 @@
 package com.litecut.app.timeline
 
+import java.util.UUID
+
 import com.getcapacitor.JSArray
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin

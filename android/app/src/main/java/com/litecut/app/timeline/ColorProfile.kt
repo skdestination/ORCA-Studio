@@ -1,5 +1,7 @@
 package com.litecut.app.timeline
 
+import android.util.Log
+
 enum class ColorSpace {
     SRGB,
     REC709,

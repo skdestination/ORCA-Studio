@@ -1,5 +1,7 @@
 package com.litecut.app.timeline.tasks
 
+import kotlin.jvm.Volatile
+
 import java.util.concurrent.CopyOnWriteArrayList
 
 abstract class Task<T>(

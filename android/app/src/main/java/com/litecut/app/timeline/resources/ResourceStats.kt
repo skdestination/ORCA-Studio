@@ -1,5 +1,7 @@
 package com.litecut.app.timeline.resources
 
+import android.graphics.Bitmap
+
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 

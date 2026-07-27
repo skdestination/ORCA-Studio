@@ -1,5 +1,7 @@
 package com.litecut.app.timeline
 
+import java.io.File
+
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border

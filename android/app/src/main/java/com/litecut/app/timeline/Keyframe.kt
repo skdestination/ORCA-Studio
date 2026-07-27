@@ -1,5 +1,7 @@
 package com.litecut.app.timeline
 
+import java.util.UUID
+
 import org.json.JSONObject
 
 data class Keyframe(

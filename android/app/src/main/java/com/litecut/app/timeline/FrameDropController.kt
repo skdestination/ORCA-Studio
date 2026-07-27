@@ -1,5 +1,7 @@
 package com.litecut.app.timeline
 
+import kotlin.jvm.Synchronized
+
 import android.util.Log
 
 class FrameDropController(

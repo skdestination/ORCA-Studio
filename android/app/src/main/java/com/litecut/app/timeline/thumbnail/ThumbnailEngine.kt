@@ -1,5 +1,7 @@
 package com.litecut.app.timeline.thumbnail
 
+import kotlin.jvm.Volatile
+
 import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log

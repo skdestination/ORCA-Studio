@@ -1,5 +1,7 @@
 package com.litecut.app.timeline
 
+import java.util.UUID
+
 import android.content.Context
 import android.view.GestureDetector
 import android.view.MotionEvent

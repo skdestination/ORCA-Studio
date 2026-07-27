@@ -1,5 +1,7 @@
 package com.litecut.app.timeline.resources
 
+import kotlin.jvm.Volatile
+
 import android.content.ComponentCallbacks2
 import android.content.Context
 import android.graphics.Bitmap

@@ -1,5 +1,7 @@
 package com.litecut.app.timeline.tasks
 
+import kotlin.jvm.Volatile
+
 import android.content.Context
 import android.util.Log
 import java.util.UUID

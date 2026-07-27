@@ -1,5 +1,7 @@
 package com.litecut.app.timeline
 
+import kotlin.jvm.Synchronized
+
 class PlaybackClock {
     private var baseTimeSeconds: Double = 0.0
     private var lastUpdateNanoTime: Long = 0L

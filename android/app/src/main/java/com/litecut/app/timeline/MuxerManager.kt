@@ -1,5 +1,8 @@
 package com.litecut.app.timeline
 
+import kotlin.jvm.Volatile
+import kotlin.jvm.Synchronized
+
 import android.media.MediaCodec
 import android.media.MediaFormat
 import android.media.MediaMuxer

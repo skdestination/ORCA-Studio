@@ -1,5 +1,7 @@
 package com.litecut.app.timeline
 
+import kotlin.jvm.Synchronized
+
 import org.json.JSONObject
 import org.json.JSONArray
 import java.util.Stack

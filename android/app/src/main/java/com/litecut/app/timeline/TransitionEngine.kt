@@ -1,5 +1,8 @@
 package com.litecut.app.timeline
 
+import kotlin.jvm.Volatile
+import kotlin.jvm.Synchronized
+
 import android.content.Context
 import com.litecut.app.timeline.resources.ResourceManager
 import java.util.concurrent.ConcurrentHashMap

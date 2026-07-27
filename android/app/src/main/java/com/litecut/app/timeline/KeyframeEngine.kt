@@ -1,5 +1,7 @@
 package com.litecut.app.timeline
 
+import kotlin.jvm.Synchronized
+
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.math.max

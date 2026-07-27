@@ -1,5 +1,7 @@
 package com.litecut.app.timeline.thumbnail
 
+import android.graphics.Paint
+
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory

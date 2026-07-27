@@ -1,5 +1,8 @@
 package com.litecut.app.timeline
 
+import kotlin.jvm.Volatile
+import kotlin.jvm.Synchronized
+
 import java.util.concurrent.ConcurrentLinkedQueue
 
 class CompositionEngine private constructor() {

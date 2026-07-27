@@ -1,5 +1,8 @@
 package com.litecut.app.timeline
 
+import kotlin.jvm.Volatile
+import kotlin.jvm.Synchronized
+
 import android.opengl.GLES20
 import android.util.Log
 import com.litecut.app.timeline.resources.ManagedCache
