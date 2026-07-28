@@ -104,91 +104,114 @@ fun EditorTransportBar(
             }
         }
 
-        // RIGHT GROUP: Single Unified Frosted Capsule containing Keyframe, Curve, Split, Trash, Undo, Redo
+        // RIGHT GROUP: Three Distinct Floating Pills matching Image 1
         Row(
-            modifier = Modifier
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFF18181B))
-                .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(16.dp))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Keyframe Add/Remove Diamond
-            Icon(
-                imageVector = Icons.Default.Diamond,
-                contentDescription = "Keyframe",
-                tint = if (hasKeyframeAtCurrentTime) Color(0xFF818CF8) else Color(0x66FFFFFF),
+            // PILL 1: Keyframe Diamond & Speed Curve
+            Row(
                 modifier = Modifier
-                    .size(16.dp)
-                    .clickable { onToggleKeyframe() }
-            )
+                    .height(34.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF1E1E22))
+                    .border(1.dp, Color(0x1FFFFFFF), CircleShape)
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Diamond,
+                    contentDescription = "Keyframe",
+                    tint = if (hasKeyframeAtCurrentTime) Color(0xFF818CF8) else Color(0x88FFFFFF),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable { onToggleKeyframe() }
+                )
 
-            // Speed Curve
-            Icon(
-                imageVector = Icons.Default.ShowChart,
-                contentDescription = "Curves",
-                tint = Color(0x66FFFFFF),
-                modifier = Modifier
-                    .size(16.dp)
-                    .clickable { onOpenKeyframeCurves() }
-            )
+                Icon(
+                    imageVector = Icons.Default.ShowChart,
+                    contentDescription = "Curves",
+                    tint = Color(0x88FFFFFF),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable { onOpenKeyframeCurves() }
+                )
+            }
 
-            // Divider line
-            Box(
+            // PILL 2: Split Scissors | Delete Trash
+            Row(
                 modifier = Modifier
-                    .width(1.dp)
-                    .height(14.dp)
-                    .background(Color(0x1AFFFFFF))
-            )
+                    .height(34.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF1E1E22))
+                    .border(1.dp, Color(0x1FFFFFFF), CircleShape)
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ContentCut,
+                    contentDescription = "Split",
+                    tint = if (hasSelectedClip) Color.White else Color(0x55FFFFFF),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable(enabled = hasSelectedClip) { onSplit() }
+                )
 
-            // Split Scissors
-            Icon(
-                imageVector = Icons.Default.ContentCut,
-                contentDescription = "Split",
-                tint = if (hasSelectedClip) Color.White else Color(0x33FFFFFF),
-                modifier = Modifier
-                    .size(16.dp)
-                    .clickable(enabled = hasSelectedClip) { onSplit() }
-            )
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(14.dp)
+                        .background(Color(0x26FFFFFF))
+                )
 
-            // Delete Trash
-            Icon(
-                imageVector = Icons.Default.Delete,
-                contentDescription = "Delete",
-                tint = if (hasSelectedClip) Color(0xFFEF4444) else Color(0x33FFFFFF),
-                modifier = Modifier
-                    .size(16.dp)
-                    .clickable(enabled = hasSelectedClip) { onDelete() }
-            )
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = if (hasSelectedClip) Color(0xFFEF4444) else Color(0x55FFFFFF),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable(enabled = hasSelectedClip) { onDelete() }
+                )
+            }
 
-            // Divider line
-            Box(
+            // PILL 3: Undo | Redo
+            Row(
                 modifier = Modifier
-                    .width(1.dp)
-                    .height(14.dp)
-                    .background(Color(0x1AFFFFFF))
-            )
+                    .height(34.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF1E1E22))
+                    .border(1.dp, Color(0x1FFFFFFF), CircleShape)
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Undo,
+                    contentDescription = "Undo",
+                    tint = if (canUndo) Color.White else Color(0x55FFFFFF),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable(enabled = canUndo) { onUndo() }
+                )
 
-            // Undo
-            Icon(
-                imageVector = Icons.Default.Undo,
-                contentDescription = "Undo",
-                tint = if (canUndo) Color.White else Color(0x33FFFFFF),
-                modifier = Modifier
-                    .size(16.dp)
-                    .clickable(enabled = canUndo) { onUndo() }
-            )
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(14.dp)
+                        .background(Color(0x26FFFFFF))
+                )
 
-            // Redo
-            Icon(
-                imageVector = Icons.Default.Redo,
-                contentDescription = "Redo",
-                tint = if (canRedo) Color.White else Color(0x33FFFFFF),
-                modifier = Modifier
-                    .size(16.dp)
-                    .clickable(enabled = canRedo) { onRedo() }
-            )
+                Icon(
+                    imageVector = Icons.Default.Redo,
+                    contentDescription = "Redo",
+                    tint = if (canRedo) Color.White else Color(0x55FFFFFF),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .clickable(enabled = canRedo) { onRedo() }
+                )
+            }
         }
     }
 }

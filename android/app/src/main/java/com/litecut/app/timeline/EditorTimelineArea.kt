@@ -32,8 +32,21 @@ fun EditorTimelineArea(
     var layersState by remember { mutableStateOf(engine.getAllLayers()) }
 
     fun refreshLayers() {
-        layersState = engine.getAllLayers()
+        layersState = engine.getAllLayers().sortedByDescending { it.order }
     }
+
+    DisposableEffect(engine) {
+        val listener = {
+            refreshLayers()
+        }
+        engine.addListener(listener)
+        onDispose {
+            engine.removeListener(listener)
+        }
+    }
+
+    val headerHeightDp = TimelineTheme.headerHeightDp.dp
+    val trackHeightDp = TimelineTheme.trackHeightDp.dp
 
     Box(
         modifier = modifier
@@ -47,21 +60,20 @@ fun EditorTimelineArea(
             // LEFT COLUMN: Sticky "LAYERS" Header + Half-Pill Layer Row Controls
             Column(
                 modifier = Modifier
-                    .width(100.dp)
+                    .width(96.dp)
                     .fillMaxHeight()
                     .background(Color.Transparent)
-                    .padding(vertical = 0.dp)
             ) {
                 // "LAYERS" Header Capsule Pill matching React
                 Box(
                     modifier = Modifier
-                        .height(15.dp)
-                        .fillMaxWidth()
-                        .padding(bottom = 1.dp)
+                        .height(headerHeightDp)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.CenterStart
                 ) {
                     Box(
                         modifier = Modifier
-                            .height(14.dp)
+                            .height(headerHeightDp - 2.dp)
                             .clip(RoundedCornerShape(topStart = 0.dp, bottomStart = 0.dp, topEnd = 12.dp, bottomEnd = 12.dp))
                             .background(Color.Black)
                             .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(topStart = 0.dp, bottomStart = 0.dp, topEnd = 12.dp, bottomEnd = 12.dp))
@@ -70,7 +82,7 @@ fun EditorTimelineArea(
                     ) {
                         Text(
                             text = "LAYERS",
-                            fontSize = 8.sp,
+                            fontSize = 9.sp,
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White,
                             letterSpacing = 1.sp
@@ -91,18 +103,17 @@ fun EditorTimelineArea(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(38.dp)
-                                .padding(vertical = 1.dp),
+                                .height(trackHeightDp),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .width(82.dp)
+                                    .width(86.dp)
                                     .fillMaxHeight()
-                                    .clip(RoundedCornerShape(topStart = 0.dp, bottomStart = 0.dp, topEnd = 18.dp, bottomEnd = 18.dp))
-                                    .background(Color.Black)
-                                    .border(1.dp, Color(0x14FFFFFF), RoundedCornerShape(topStart = 0.dp, bottomStart = 0.dp, topEnd = 18.dp, bottomEnd = 18.dp))
-                                    .padding(start = 6.dp, end = 8.dp),
+                                    .clip(RoundedCornerShape(topStart = 0.dp, bottomStart = 0.dp, topEnd = 16.dp, bottomEnd = 16.dp))
+                                    .background(Color(0xFF121215))
+                                    .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(topStart = 0.dp, bottomStart = 0.dp, topEnd = 16.dp, bottomEnd = 16.dp))
+                                    .padding(start = 6.dp, end = 6.dp),
                                 contentAlignment = Alignment.CenterStart
                             ) {
                                 // Track Number watermark
@@ -216,8 +227,7 @@ fun EditorTimelineArea(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(38.dp)
-                                .padding(vertical = 2.dp),
+                                .height(trackHeightDp),
                             contentAlignment = Alignment.CenterStart
                         ) {
                             Box(

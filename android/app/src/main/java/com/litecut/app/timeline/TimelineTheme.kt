@@ -1,16 +1,37 @@
 package com.litecut.app.timeline
 
+import android.content.Context
+
 /**
  * Centralized theme and styling rules for the native video editing timeline matching React.
  */
 object TimelineTheme {
-    // Sizing and Layout Boundaries matching React App
-    var headerHeight: Float = 15f        // Height of the time ruler (15dp in React)
-    var trackHeight: Float = 38f         // Height of each track lane (38dp in React)
-    var trackSpacing: Float = 0f         // Spacing between tracks (0dp, thin 1px border)
-    var clipCornerRadius: Float = 8f     // Corner radius of video/text/image clips (8dp in React)
-    var audioClipCornerRadius: Float = 12f // Corner radius of audio clips (12dp in React)
-    var clipInnerMargin: Float = 2f       // Top/bottom margin inside track lane (2dp)
+    // Sizing and Layout Boundaries in DP
+    var headerHeightDp: Float = 24f        // Height of the time ruler (24dp)
+    var trackHeightDp: Float = 48f         // Height of each track lane (48dp)
+    var trackSpacingDp: Float = 0f         // Spacing between tracks (0dp)
+
+    // Pixel dimensions calculated from screen density
+    var density: Float = 2.5f
+    var headerHeight: Float = 24f * 2.5f
+    var trackHeight: Float = 48f * 2.5f
+    var trackSpacing: Float = 0f
+    var clipCornerRadius: Float = 8f * 2.5f
+    var audioClipCornerRadius: Float = 12f * 2.5f
+    var clipInnerMargin: Float = 2f * 2.5f
+
+    fun init(context: Context) {
+        density = context.resources.displayMetrics.density
+        headerHeight = headerHeightDp * density
+        trackHeight = trackHeightDp * density
+        trackSpacing = trackSpacingDp * density
+        clipCornerRadius = 8f * density
+        audioClipCornerRadius = 12f * density
+        clipInnerMargin = 2f * density
+        rulerTextSize = 10f * density
+        clipLabelSize = 11f * density
+        playheadLineWidth = 1.5f * density
+    }
 
     // Core Colors matching React App (#0c0c0e)
     var backgroundColor: Int = 0xFF0C0C0E.toInt()         // Dark canvas background
@@ -22,7 +43,7 @@ object TimelineTheme {
     // Ruler Grid Colors
     var rulerTickColor: Int = 0x33FFFFFF                  // Tick marks color
     var rulerTextColor: Int = 0x88A1A1AA.toInt()          // Label colors (zinc-400)
-    var rulerTextSize: Float = 10f                        // Text size for ruler times (10sp)
+    var rulerTextSize: Float = 10f * 2.5f                 // Text size for ruler times
 
     // Unselected Clip Card Gradients (bg-gradient-to-r)
     var clipVideoStartColor: Int = 0xFF0D1E3D.toInt()
@@ -58,7 +79,7 @@ object TimelineTheme {
     // Playhead Styling
     var playheadLineColor: Int = 0xFFFF2D55.toInt()       // Crimson indicator line
     var playheadHeadColor: Int = 0xFFFF2D55.toInt()       // Crimson pointer top
-    var playheadLineWidth: Float = 1f                     // Playhead line width (1px in React)
+    var playheadLineWidth: Float = 1.5f * 2.5f            // Playhead line width
 
     // Convenience properties for TimelineRenderer
     val clipVideoColor: Int get() = clipVideoStartColor
@@ -71,6 +92,7 @@ object TimelineTheme {
 
     // Clip Label Font Settings
     var clipLabelColor: Int = 0xFFFFFFFF.toInt()          // Text on top of clips
-    var clipLabelSize: Float = 10f                        // Font size of clip text label
+    var clipLabelSize: Float = 11f * 2.5f                 // Font size of clip text label
 }
+
 

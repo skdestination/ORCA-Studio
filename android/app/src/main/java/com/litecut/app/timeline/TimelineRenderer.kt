@@ -566,18 +566,7 @@ class TimelineRenderer {
             }
         }
 
-        // 5. Draw Playhead if needed (handled by Stationary Playhead overlay or native line)
-        val playheadX = (engine.currentTime * pps - viewport.scrollX).toFloat()
-        if (playheadX in 0f..viewport.width.toFloat()) {
-            canvas.drawLine(playheadX, headerHeight, playheadX, viewport.height.toFloat(), playheadLinePaint)
-            
-            playheadPath.reset()
-            playheadPath.moveTo(playheadX - 5f, 0f)
-            playheadPath.lineTo(playheadX + 5f, 0f)
-            playheadPath.lineTo(playheadX, 10f)
-            playheadPath.close()
-            canvas.drawPath(playheadPath, playheadHeadPaint)
-        }
+        // 5. Playhead indicator is rendered cleanly by the stationary overlay in EditorTimelineArea
 
         // 6. Draw Marquee Selection Box Overlay
         if (view.isMarqueeActive) {

@@ -67,8 +67,8 @@ fun EditorPreviewCanvas(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF09090B))
-            .padding(16.dp),
+            .background(Color.Black)
+            .padding(8.dp),
         contentAlignment = Alignment.Center
     ) {
         BoxWithConstraints(
@@ -79,10 +79,10 @@ fun EditorPreviewCanvas(
             Box(
                 modifier = Modifier
                     .aspectRatio(ratioValue)
-                    .fillMaxHeight(0.92f)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color(0xFF121215))
-                    .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(24.dp)),
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF0C0C0E))
+                    .border(1.dp, Color(0x26FFFFFF), RoundedCornerShape(16.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 // Outer Canvas Surface
@@ -106,7 +106,7 @@ fun EditorPreviewCanvas(
                         },
                     contentAlignment = Alignment.Center
                 ) {
-                    // Aesthetic Media Frame Rendering matching React photo preview in Image 2
+                    // Aesthetic Media Frame Rendering
                     Box(
                         modifier = Modifier
                             .graphicsLayer {
@@ -117,16 +117,8 @@ fun EditorPreviewCanvas(
                                 rotationZ = rotation
                             }
                             .fillMaxSize()
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(
-                                        Color(0xFF2C221E),
-                                        Color(0xFF1A1614),
-                                        Color(0xFF0F0D0C)
-                                    )
-                                )
-                            ),
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(Color(0xFF09090C)),
                         contentAlignment = Alignment.Center
                     ) {
                         // High quality cinematic portrait visual preview or real media source
@@ -143,24 +135,30 @@ fun EditorPreviewCanvas(
                                 verticalArrangement = Arrangement.Center,
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .padding(24.dp)
+                                    .padding(16.dp)
+                                    .clickable { onImportClick?.invoke() }
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(56.dp)
+                                        .size(48.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0x22FFFFFF))
-                                        .border(1.dp, Color(0x33FFFFFF), CircleShape),
+                                        .background(Color(0x1F6366F1))
+                                        .border(1.dp, Color(0x336366F1), CircleShape),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text("+", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Light)
+                                    Text("+", color = Color(0xFF818CF8), fontSize = 24.sp, fontWeight = FontWeight.Light)
                                 }
-                                Spacer(modifier = Modifier.height(12.dp))
+                                Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Import Media to Start Editing",
-                                    color = Color(0xAAFFFFFF),
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium
+                                    text = "Tap to Import Media",
+                                    color = Color.White,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = "Add video, audio or photos",
+                                    color = Color(0xFFA1A1AA),
+                                    fontSize = 10.sp
                                 )
                             }
                         }

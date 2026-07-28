@@ -168,10 +168,7 @@ fun TimelineScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .weight(1f)
-                            .padding(12.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF09090A))
-                            .border(1.dp, Color(0x1AFFFFFF), RoundedCornerShape(12.dp)),
+                            .background(Color.Black),
                         contentAlignment = Alignment.Center
                     ) {
                         val activeClipsAtTime = engine.getActiveClips(currentTime)
@@ -344,11 +341,18 @@ fun TimelineScreen(
                     isPermissionGranted = isMediaPermissionGranted,
                     onRequestPermission = { requestStoragePermissions() },
                     onMediaSelected = { mediaItem ->
-                        val track = engine.getAllLayers().firstOrNull()
-                        if (track != null) {
+                        val targetTrack = when (mediaItem.type) {
+                            "audio" -> engine.getAllLayers().find { it.name?.contains("Audio", ignoreCase = true) == true }
+                                ?: engine.getAllLayers().lastOrNull()
+                            "text" -> engine.getAllLayers().find { it.name?.contains("Text", ignoreCase = true) == true }
+                                ?: engine.getAllLayers().firstOrNull()
+                            else -> engine.getAllLayers().find { it.name?.contains("Main", ignoreCase = true) == true }
+                                ?: engine.getAllLayers().firstOrNull()
+                        }
+                        if (targetTrack != null) {
                             val newClip = Clip(
                                 id = "clip_${System.currentTimeMillis()}",
-                                layerId = track.id,
+                                layerId = targetTrack.id,
                                 type = when (mediaItem.type) {
                                     "audio" -> ClipType.AUDIO
                                     "image" -> ClipType.IMAGE
@@ -361,6 +365,9 @@ fun TimelineScreen(
                                 trimStartSeconds = 0.0
                             )
                             engine.executeCommand(CreateClipCommand(newClip))
+                            engine.selectedClipIds.clear()
+                            engine.selectedClipIds.add(newClip.id)
+                            selectedClipIds = engine.selectedClipIds.toList()
                         }
                         isMediaDrawerOpen = false
                     },

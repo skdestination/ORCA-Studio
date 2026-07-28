@@ -39,10 +39,21 @@ class TimelineView @JvmOverloads constructor(
     val marqueeCurrentX: Float get() = gestureHandler.marqueeCurrentX
     val marqueeCurrentY: Float get() = gestureHandler.marqueeCurrentY
 
+    private val stateListener = {
+        postInvalidateOnAnimation()
+    }
+
     init {
         // Enforce hardware acceleration layer for high-performance canvas rendering
         setLayerType(View.LAYER_TYPE_HARDWARE, null)
+        TimelineTheme.init(context)
+        engine.addListener(stateListener)
         com.litecut.app.timeline.thumbnail.ThumbnailEngine.getInstance(context).registerViewport(viewport)
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        engine.removeListener(stateListener)
     }
 
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {

@@ -20,6 +20,28 @@ class TimelineEngine {
     var pixelsPerSecond: Double = 100.0
     val selectedClipIds = HashSet<String>()
     
+    private val listeners = ArrayList<() -> Unit>()
+
+    fun addListener(listener: () -> Unit) {
+        synchronized(listeners) {
+            listeners.add(listener)
+        }
+    }
+
+    fun removeListener(listener: () -> Unit) {
+        synchronized(listeners) {
+            listeners.remove(listener)
+        }
+    }
+
+    fun notifyStateChanged() {
+        synchronized(listeners) {
+            for (listener in listeners) {
+                listener()
+            }
+        }
+    }
+
     // Undo/Redo preparation
     private val undoStack = Stack<Command>()
     private val redoStack = Stack<Command>()
@@ -154,6 +176,7 @@ class TimelineEngine {
         command.execute(this)
         undoStack.push(command)
         redoStack.clear() // Clear redo stack on new actions
+        notifyStateChanged()
     }
 
     fun undo() {
@@ -161,6 +184,7 @@ class TimelineEngine {
             val cmd = undoStack.pop()
             cmd.undo(this)
             redoStack.push(cmd)
+            notifyStateChanged()
         }
     }
 
@@ -169,6 +193,7 @@ class TimelineEngine {
             val cmd = redoStack.pop()
             cmd.execute(this)
             undoStack.push(cmd)
+            notifyStateChanged()
         }
     }
 
@@ -179,11 +204,13 @@ class TimelineEngine {
 
     fun addClipInternal(clip: Clip) {
         clips[clip.id] = clip
+        notifyStateChanged()
     }
 
     fun deleteClipInternal(id: String) {
         clips.remove(id)
         selectedClipIds.remove(id)
+        notifyStateChanged()
     }
 
     fun deleteClipsInternal(ids: List<String>) {
@@ -191,6 +218,7 @@ class TimelineEngine {
             clips.remove(id)
             selectedClipIds.remove(id)
         }
+        notifyStateChanged()
     }
 
     fun moveClipsInternal(
