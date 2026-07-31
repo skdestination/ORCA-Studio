@@ -57,8 +57,6 @@ fun TimelineScreen(
             }
         }
     }
-        }
-    }
 
     var canRedo by remember { mutableStateOf(engine.canRedo()) }
     var isPlaying by remember { mutableStateOf(false) }
