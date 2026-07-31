@@ -35,10 +35,45 @@ class TimelineRenderer {
 
     // Reusable geometry to prevent runtime object allocations in onDraw()
     private val tempRect = RectF()
+    private val tempHandleRect = RectF()
     private val tempTextBounds = Rect()
+
+    private val snapLinePaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        strokeWidth = 3f // will scale with density
+    }
+
+    private fun drawSnapGuides(canvas: Canvas, viewport: Viewport, gestureHandler: TimelineGestureHandler, density: Float, engine: TimelineEngine) {
+        val snapResult = gestureHandler.activeSnapResult ?: return
+        if (!snapResult.isSnapped) return
+
+        val guides = SnapEngine.getInstance().generateGuidesFromSnapResult(snapResult)
+        
+        snapLinePaint.strokeWidth = 1.5f * density
+        for (guide in guides) {
+            snapLinePaint.color = guide.snapLineColor
+            val x = (guide.timeSeconds * engine.pixelsPerSecond - viewport.scrollX).toFloat()
+            canvas.drawLine(x, headerHeight, x, canvas.height.toFloat(), snapLinePaint)
+        }
+    }
+
     private val playheadPath = Path()
     private val clipPath = Path()
     private val slotRect = RectF()
+
+    // Trim Handle paints matching React style
+    private val trimHandlePaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.FILL
+        color = android.graphics.Color.WHITE
+    }
+    private val trimHandleGripPaint = Paint().apply {
+        isAntiAlias = true
+        style = Paint.Style.STROKE
+        color = android.graphics.Color.parseColor("#222226")
+        strokeWidth = 2f
+    }
 
     // Dimensions linked dynamically to TimelineTheme
     val headerHeight: Float get() = TimelineTheme.headerHeight
@@ -262,9 +297,47 @@ class TimelineRenderer {
 
             canvas.drawRoundRect(tempRect, cRadius, cRadius, clipBorderPaint)
 
-            // Draw selection borders if highlighted
+            // Draw selection borders & white trim handles if highlighted matching React
             if (isSelected) {
                 canvas.drawRoundRect(tempRect, cRadius, cRadius, selectionBorderPaint)
+
+                val density = view.resources.displayMetrics.density
+                val handleWidth = 9f * density
+                val handlePadding = 1f * density
+                val handleRadius = 4f * density
+
+                if (tempRect.width() > handleWidth * 2.2f) {
+                    // Left Trim Handle Pill
+                    tempHandleRect.set(
+                        tempRect.left + handlePadding,
+                        tempRect.top + handlePadding,
+                        tempRect.left + handlePadding + handleWidth,
+                        tempRect.bottom - handlePadding
+                    )
+                    canvas.drawRoundRect(tempHandleRect, handleRadius, handleRadius, trimHandlePaint)
+
+                    // Left Handle Grip Lines
+                    val leftX = tempHandleRect.centerX()
+                    val leftY = tempHandleRect.centerY()
+                    trimHandleGripPaint.strokeWidth = 1.2f * density
+                    canvas.drawLine(leftX - 1.2f * density, leftY - 4f * density, leftX - 1.2f * density, leftY + 4f * density, trimHandleGripPaint)
+                    canvas.drawLine(leftX + 1.2f * density, leftY - 4f * density, leftX + 1.2f * density, leftY + 4f * density, trimHandleGripPaint)
+
+                    // Right Trim Handle Pill
+                    tempHandleRect.set(
+                        tempRect.right - handlePadding - handleWidth,
+                        tempRect.top + handlePadding,
+                        tempRect.right - handlePadding,
+                        tempRect.bottom - handlePadding
+                    )
+                    canvas.drawRoundRect(tempHandleRect, handleRadius, handleRadius, trimHandlePaint)
+
+                    // Right Handle Grip Lines
+                    val rightX = tempHandleRect.centerX()
+                    val rightY = tempHandleRect.centerY()
+                    canvas.drawLine(rightX - 1.2f * density, rightY - 4f * density, rightX - 1.2f * density, rightY + 4f * density, trimHandleGripPaint)
+                    canvas.drawLine(rightX + 1.2f * density, rightY - 4f * density, rightX + 1.2f * density, rightY + 4f * density, trimHandleGripPaint)
+                }
             }
 
             // Keyframe Polyline Slope Overlay

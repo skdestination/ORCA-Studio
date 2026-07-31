@@ -65,6 +65,7 @@ dependencies {
     implementation "androidx.activity:activity-compose:1.8.0"
     implementation "androidx.activity:activity-ktx:1.8.0"
     implementation "io.coil-kt:coil-compose:2.4.0"
+    implementation "io.coil-kt:coil-video:2.4.0"
 
     // ONNX Runtime Mobile for RAFT Optical Flow
     implementation 'com.microsoft.onnxruntime:onnxruntime-android:1.17.1'

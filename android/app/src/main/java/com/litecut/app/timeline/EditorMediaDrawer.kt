@@ -49,14 +49,14 @@ data class FolderModel(
 )
 
 val DEFAULT_MOCK_MEDIA_ITEMS = listOf(
-    MediaItemModel("1", "Camera_Capture_01.mp4", "video", "0:15", "Camera"),
-    MediaItemModel("2", "Sunset_Vlog.mp4", "video", "0:42", "Camera"),
-    MediaItemModel("3", "Neon_City.jpg", "image", "", "Pictures"),
-    MediaItemModel("4", "Cyber_Portrait.png", "image", "", "Pictures"),
-    MediaItemModel("5", "LoFi_Beat_Track.mp3", "audio", "2:30", "Music"),
-    MediaItemModel("6", "Cinematic_Bass_Drop.wav", "audio", "0:05", "Music"),
-    MediaItemModel("7", "Action_BRoll_4K.mp4", "video", "1:12", "Downloads"),
-    MediaItemModel("8", "Aesthetic_Filter_Bg.jpg", "image", "", "Downloads")
+    MediaItemModel("1", "Alpine_Peaks.mp4", "video", "0:15", "Camera", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4"),
+    MediaItemModel("2", "Sunset_Vlog.mp4", "video", "0:12", "Camera", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4"),
+    MediaItemModel("3", "Ocean_Sunset.jpg", "image", "", "Pictures", "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=600"),
+    MediaItemModel("4", "Mountain_Peak.jpg", "image", "", "Pictures", "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&q=80&w=600"),
+    MediaItemModel("5", "LoFi_Beat_Track.mp3", "audio", "2:30", "Music", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"),
+    MediaItemModel("6", "Cinematic_Bass_Drop.wav", "audio", "0:05", "Music", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"),
+    MediaItemModel("7", "Action_BRoll_4K.mp4", "video", "1:12", "Downloads", "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4"),
+    MediaItemModel("8", "Aesthetic_Filter_Bg.jpg", "image", "", "Downloads", "https://images.unsplash.com/photo-1515621061946-eff1c2a352bd?auto=format&fit=crop&q=80&w=600")
 )
 
 val DEFAULT_FOLDERS = listOf(

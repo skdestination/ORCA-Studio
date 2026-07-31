@@ -77,6 +77,32 @@ class TimelineEngine {
             layers.add(l3)
             layers.add(l2)
             layers.add(l1)
+
+            if (clips.isEmpty()) {
+                val demoClip1 = Clip(
+                    id = "clip_default_1",
+                    layerId = l3.id,
+                    type = ClipType.VIDEO,
+                    src = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+                    name = "Alpine Peaks",
+                    leftSeconds = 0.0,
+                    durationSeconds = 15.0,
+                    trimStartSeconds = 0.0
+                )
+                val demoClip2 = Clip(
+                    id = "clip_default_2",
+                    layerId = l3.id,
+                    type = ClipType.IMAGE,
+                    src = "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&q=80&w=600",
+                    name = "Ocean Sunset",
+                    leftSeconds = 15.0,
+                    durationSeconds = 10.0,
+                    trimStartSeconds = 0.0
+                )
+                clips[demoClip1.id] = demoClip1
+                clips[demoClip2.id] = demoClip2
+                selectedClipIds.add(demoClip1.id)
+            }
         }
     }
 

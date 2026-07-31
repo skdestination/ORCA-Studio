@@ -1,6 +1,7 @@
 import { registerPlugin, Capacitor } from "@capacitor/core";
 import { Clip, Layer, Project } from "../types";
 import { Command, MoveClipCommand } from "./commands";
+import { initialSnapshot } from "./initialSnapshot";
 
 export interface TimelineEnginePluginType {
   initTimeline(options: { project: string }): Promise<{ success: boolean }>;
@@ -87,7 +88,6 @@ class WebTimelineEngineFallback {
     this.undoStack = [];
     this.redoStack = [];
   }
-
   getState() {
     return this.getStateSnapshot();
   }

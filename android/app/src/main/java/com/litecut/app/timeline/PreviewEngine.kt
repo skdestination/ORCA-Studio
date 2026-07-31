@@ -294,21 +294,9 @@ class PreviewEngine private constructor(val context: Context) : PreviewScheduler
             }
         }
 
-        // 1. Compile active frame at the target adaptive scale
-        val qualityScale = schedulerInstance.adaptiveQualityScale
-        val frame = session.composeFrame(currentSeconds, qualityScale)
-        
-        // 2. Submit composed frame to the OpenGL Render Pipeline
-        val stats = renderPipeline.renderFrame(frame.compositionOutput)
-        
-        // 3. Log render execution metrics
-        metrics.recordFrameRendered(stats.lastFrameRenderTimeNs)
-        
-        // 4. Dispatch position change updates to listeners
+        // Rendering is handled by PreviewSurfaceView continuously while playing.
+        // We just dispatch time updates so the UI can stay in sync.
         notifyTimeUpdated(currentSeconds, isScrubbing = false)
-        
-        // 5. Recycle frame descriptor instantly
-        PreviewFrame.release(frame)
     }
 
     /**
@@ -318,10 +306,8 @@ class PreviewEngine private constructor(val context: Context) : PreviewScheduler
     private fun renderSingleFrameImmediate(seconds: Double) {
         val session = activeSession ?: startSession()
         
-        // Force full resolution quality during scrubbing/seeks to guarantee visual crispness
-        val frame = session.composeFrame(seconds, 1.0f)
-        renderPipeline.renderFrame(frame.compositionOutput)
-        PreviewFrame.release(frame)
+        // Render occurs inside GLSurfaceView's onDrawFrame via PreviewSurfaceView
+        // We just notify listeners that time updated, triggering a requestRender().
     }
 
     // --- Synchronized Listener Notification Dispatchers ---

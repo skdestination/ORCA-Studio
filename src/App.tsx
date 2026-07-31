@@ -88,6 +88,7 @@ import { ExportOverlay } from "./components/ExportOverlay";
 
 import { Screen, Layer, Keyframe, Clip, Project } from "./types";
 import { TimelineBridge } from "./lib/timelineBridge";
+import { initialSnapshot } from "./lib/initialSnapshot";
 import { PlaybackEngine } from "./lib/playbackEngine";
 import { getInterpolatedProps } from "./lib/utils";
 import { VideoRenderer, AudioRenderer } from "./components/Renderers";
@@ -2908,113 +2909,31 @@ export default function App() {
   };
 
   const openProject = async (project: Project) => {
-    // Show some loading indicator if needed here, but since it's local it should be fast
-    let resolvedClips = project.clips || [];
-    let resolvedLayers = project.layers || [];
-
-    // Auto-populate default sample projects if they have no tracks or clips
-    if (resolvedClips.length === 0) {
-      if (project.id === "1") {
-        resolvedLayers = [
-          { id: "L_v1", order: 0, isMuted: false, isHidden: false, name: "Video Track" },
-          { id: "L_a1", order: 1, isMuted: false, isHidden: false, name: "Audio Track" }
-        ];
-        resolvedClips = [
-          {
-            id: "v1_clip",
-            layerId: "L_v1",
-            type: "video",
-            src: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
-            leftSeconds: 0,
-            durationSeconds: 15,
-            originalDurationSeconds: 15,
-            trimStartSeconds: 0,
-            volume: 100,
-            speed: 1,
-            name: "Alpine Peaks"
-          },
-          {
-            id: "a1_clip",
-            layerId: "L_a1",
-            type: "audio",
-            src: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-            leftSeconds: 0,
-            durationSeconds: 15,
-            originalDurationSeconds: 184,
-            trimStartSeconds: 0,
-            volume: 50,
-            speed: 1,
-            name: "Lofi Beats"
-          }
-        ];
-      } else if (project.id === "frosted-p") {
-        resolvedLayers = [
-          { id: "L_im1", order: 0, isMuted: false, isHidden: false, name: "Image Track" },
-          { id: "L_tx1", order: 1, isMuted: false, isHidden: false, name: "Text Track" }
-        ];
-        resolvedClips = [
-          {
-            id: "im1_clip",
-            layerId: "L_im1",
-            type: "image",
-            src: "https://images.unsplash.com/photo-1614036417651-efe5912149d8?auto=format&fit=crop&q=80&w=400",
-            leftSeconds: 0,
-            durationSeconds: 10,
-            originalDurationSeconds: 10,
-            trimStartSeconds: 0,
-            name: "Frosted Image"
-          },
-          {
-            id: "tx1_clip",
-            layerId: "L_tx1",
-            type: "text",
-            text: "Cozy Winter",
-            color: "#ffffff",
-            fontSize: 44,
-            textAnimation: "Bounce",
-            leftSeconds: 2,
-            durationSeconds: 6,
-            trimStartSeconds: 0,
-            src: ""
-          }
-        ];
-      }
-    } else {
-      try {
-        const { getFile } = await import("./lib/db");
-        resolvedClips = await Promise.all(
-          resolvedClips.map(async (c) => {
-            if (c.fileId) {
-              const blob = await getFile(c.fileId);
-              if (blob) {
-                const url = URL.createObjectURL(blob);
-                return { ...c, src: url, originalSrc: c.originalSrc ? url : undefined };
-              }
-            }
-            return c;
-          })
-        );
-      } catch(err) {
-        console.warn("Could not restore media blobs", err);
-      }
-    }
-
     setActiveProjectId(project.id);
-    setCurrentProjectRatio(project.ratio);
-    setLayers(resolvedLayers);
-    setClips(resolvedClips);
+    setCurrentProjectRatio(project.ratio || "16:9");
+    setClips([]);
+    setLayers([]);
+    setSelectedClipIds([]);
     setCurrentTime(0);
     setZoomLevel(1);
     setCurrentScreen("editor");
 
-    // Initialize native/fallback timeline engine
+    // Initialize native/fallback timeline engine with the snapshot from Kotlin
     await TimelineBridge.initTimeline({
-      ...project,
-      clips: resolvedClips,
-      layers: resolvedLayers,
-      currentTime: 0,
-      zoomLevel: 1
+      id: project.id,
+      ratio: project.ratio,
+      clips: initialSnapshot.clips,
+      layers: initialSnapshot.layers,
+      currentTime: initialSnapshot.currentTime,
+      zoomLevel: initialSnapshot.zoomLevel
     });
+
+    const state = await TimelineBridge.getTimelineState();
+    setClips(state.clips || []);
+    setLayers(state.layers || []);
+    setSelectedClipIds(state.selectedClipIds || []);
+    setCurrentTime(state.currentTime || 0);
+    setZoomLevel(state.zoomLevel || 1.0);
   };
 
   // Auto-save
@@ -3067,17 +2986,7 @@ export default function App() {
     }
   }, [layers, clips, currentProjectRatio, activeProjectId, currentScreen]);
 
-  // Synchronize clips and layers to Native Timeline Engine on any React state change!
-  useEffect(() => {
-    if (currentScreen === "editor" && activeProjectId) {
-      TimelineBridge.initTimeline({
-        id: activeProjectId,
-        ratio: currentProjectRatio,
-        clips,
-        layers
-      });
-    }
-  }, [layers, clips, currentProjectRatio, activeProjectId, currentScreen]);
+  
 
   const addMediaClip = (
     id: string,

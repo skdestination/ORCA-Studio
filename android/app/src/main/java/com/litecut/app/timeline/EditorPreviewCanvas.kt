@@ -28,6 +28,10 @@ import kotlin.math.abs
 
 import coil.compose.AsyncImage
 
+import androidx.compose.ui.platform.LocalContext
+import coil.decode.VideoFrameDecoder
+import coil.request.ImageRequest
+
 /**
  * Section B: Video Preview Canvas Area for ORCA Studio.
  * Renders the video/image preview canvas with rounded corners matching React exactly.
@@ -41,6 +45,8 @@ fun EditorPreviewCanvas(
     onImportClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+
     // Parse ratio float (Width / Height)
     val ratioValue = remember(aspectRatioString) {
         val parts = aspectRatioString.split(":")
@@ -63,7 +69,20 @@ fun EditorPreviewCanvas(
     var showSnapX by remember { mutableStateOf(false) } // Vertical center guide
     var showSnapY by remember { mutableStateOf(false) } // Horizontal center guide
 
-    val isClipSelected = selectedClipName != null
+    val isClipSelected = selectedClipName != null || !activeClipSrc.isNullOrBlank()
+
+    // Build Coil ImageRequest with video frame decoder support for imported active clip media
+    val imageRequest = remember(activeClipSrc, context) {
+        if (!activeClipSrc.isNullOrBlank()) {
+            ImageRequest.Builder(context)
+                .data(activeClipSrc)
+                .decoderFactory(VideoFrameDecoder.Factory())
+                .crossfade(true)
+                .build()
+        } else {
+            null
+        }
+    }
 
     Box(
         modifier = modifier
@@ -122,15 +141,15 @@ fun EditorPreviewCanvas(
                             .background(Color(0xFF09090C)),
                         contentAlignment = Alignment.Center
                     ) {
-                        // High quality cinematic portrait visual preview or real media source
-                        if (!activeClipSrc.isNullOrBlank()) {
-                            AsyncImage(
-                                model = activeClipSrc,
-                                contentDescription = "Preview Media",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        } else {
+                        // Hardware-accelerated OpenGL Native Render Engine
+                        androidx.compose.ui.viewinterop.AndroidView(
+                            factory = { ctx ->
+                                PreviewSurfaceView(ctx)
+                            },
+                            modifier = Modifier.fillMaxSize()
+                        )
+                        
+                        if (imageRequest == null) {
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.Center,
@@ -165,44 +184,44 @@ fun EditorPreviewCanvas(
                         }
 
                         // On-Screen Bounding Box & Transform Handles if selected
-                        if (isClipSelected) {
+                        if (selectedClipName != null) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .border(1.5.dp, Color(0xFF6366F1), RoundedCornerShape(24.dp))
+                                    .border(1.5.dp, Color(0xCCFFFFFF), RoundedCornerShape(16.dp))
                             ) {
-                                // 4 Corner Scale Handles
+                                // 4 Corner Scale Handles (Refined White Dots matching React)
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.TopStart)
-                                        .offset(8.dp, 8.dp)
-                                        .size(10.dp)
+                                        .offset(6.dp, 6.dp)
+                                        .size(8.dp)
                                         .background(Color.White, CircleShape)
-                                        .border(1.5.dp, Color(0xFF6366F1), CircleShape)
+                                        .border(1.dp, Color.Black.copy(alpha = 0.4f), CircleShape)
                                 )
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
-                                        .offset((-8).dp, 8.dp)
-                                        .size(10.dp)
+                                        .offset((-6).dp, 6.dp)
+                                        .size(8.dp)
                                         .background(Color.White, CircleShape)
-                                        .border(1.5.dp, Color(0xFF6366F1), CircleShape)
+                                        .border(1.dp, Color.Black.copy(alpha = 0.4f), CircleShape)
                                 )
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomStart)
-                                        .offset(8.dp, (-8).dp)
-                                        .size(10.dp)
+                                        .offset(6.dp, (-6).dp)
+                                        .size(8.dp)
                                         .background(Color.White, CircleShape)
-                                        .border(1.5.dp, Color(0xFF6366F1), CircleShape)
+                                        .border(1.dp, Color.Black.copy(alpha = 0.4f), CircleShape)
                                 )
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.BottomEnd)
-                                        .offset((-8).dp, (-8).dp)
-                                        .size(10.dp)
+                                        .offset((-6).dp, (-6).dp)
+                                        .size(8.dp)
                                         .background(Color.White, CircleShape)
-                                        .border(1.5.dp, Color(0xFF6366F1), CircleShape)
+                                        .border(1.dp, Color.Black.copy(alpha = 0.4f), CircleShape)
                                 )
                             }
                         }

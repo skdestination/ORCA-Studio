@@ -27,7 +27,7 @@ class TimelineGestureHandler(
     private var velocityTracker: VelocityTracker? = null
 
     enum class TouchMode {
-        NONE, SCRUBBING, DRAGGING, SCROLLING, MARQUEE_SELECT
+        NONE, SCRUBBING, DRAGGING, SCROLLING, MARQUEE_SELECT, TRIMMING
     }
 
     var touchMode = TouchMode.NONE
@@ -41,6 +41,15 @@ class TimelineGestureHandler(
     var marqueeStartY: Float = 0f
     var marqueeCurrentX: Float = 0f
     var marqueeCurrentY: Float = 0f
+
+    // Trimming
+    var trimClipId: String? = null
+    var trimSide: String? = null
+    var trimStartDuration = 0.0
+    var trimStartLeft = 0.0
+
+    // Snapping
+    var activeSnapResult: SnapResult? = null
 
     private var lastTouchX = 0f
     private var lastTouchY = 0f
@@ -104,6 +113,7 @@ class TimelineGestureHandler(
                 engine.selectedClipIds.add(pendingClip!!.id)
             }
             
+            SnapEngine.getInstance().prepareDragSession(pendingClip!!.id, engine, viewport, engine.pixelsPerSecond)
             updateDragPreview(downX, downY)
             
             // Start auto-scroll checker
@@ -150,14 +160,24 @@ class TimelineGestureHandler(
                     touchMode = TouchMode.SCRUBBING
                     scrubPlayhead(x)
                 } else {
-                    val hitClip = hitTestClip(x, y)
-                    if (hitClip != null) {
-                        isPendingDrag = true
-                        pendingClip = hitClip
-                        dragHoldHandler.removeCallbacks(dragHoldRunnable)
-                        dragHoldHandler.postDelayed(dragHoldRunnable, 200)
+                    val trimHit = hitTestTrimHandle(x, y)
+                    if (trimHit != null) {
+                        touchMode = TouchMode.TRIMMING
+                        trimClipId = trimHit.first.id
+                        trimSide = trimHit.second
+                        trimStartDuration = trimHit.first.durationSeconds
+                        trimStartLeft = trimHit.first.leftSeconds
+                        SnapEngine.getInstance().prepareDragSession(trimHit.first.id, engine, viewport, engine.pixelsPerSecond)
                     } else {
-                        touchMode = TouchMode.SCROLLING
+                        val hitClip = hitTestClip(x, y)
+                        if (hitClip != null) {
+                            isPendingDrag = true
+                            pendingClip = hitClip
+                            dragHoldHandler.removeCallbacks(dragHoldRunnable)
+                            dragHoldHandler.postDelayed(dragHoldRunnable, 200)
+                        } else {
+                            touchMode = TouchMode.SCROLLING
+                        }
                     }
                 }
             }
@@ -188,6 +208,48 @@ class TimelineGestureHandler(
                         view.touchX = x
                         view.touchY = y
                         updateDragPreview(x, y)
+                        view.invalidate()
+                    }
+                    TouchMode.TRIMMING -> {
+                        val dx = x - downX
+                        val deltaSeconds = dx / engine.pixelsPerSecond
+                        
+                        val clipId = trimClipId ?: return true
+                        val clip = engine.getClip(clipId) ?: return true
+                        val originalDuration = trimStartDuration
+                        val originalLeft = trimStartLeft
+                        
+                        if (trimSide == "right") {
+                            var proposedDuration = originalDuration + deltaSeconds
+                            activeSnapResult = SnapEngine.getInstance().snapClip(originalLeft, proposedDuration, engine.pixelsPerSecond)
+                            if (activeSnapResult?.isSnapped == true && activeSnapResult!!.edgeSnapped == "end") {
+                                // wait, snapClip snaps EITHER start or end. If it snaps the end, it modifies snappedTimeSeconds? No, snappedTimeSeconds is always the snapped LEFT edge.
+                                // Let's just pass originalLeft, and it will snap the end.
+                                // We can infer the snapped duration:
+                                val shift = activeSnapResult!!.offsetSeconds
+                                proposedDuration -= shift
+                            }
+                            if (proposedDuration < 0.5) proposedDuration = 0.5
+                            clip.durationSeconds = proposedDuration
+                        } else {
+                            var proposedLeft = originalLeft + deltaSeconds
+                            activeSnapResult = SnapEngine.getInstance().snapClip(proposedLeft, originalDuration - deltaSeconds, engine.pixelsPerSecond)
+                            if (activeSnapResult?.isSnapped == true) {
+                                proposedLeft = activeSnapResult!!.snappedTimeSeconds
+                                deltaSeconds = proposedLeft - originalLeft
+                            }
+                            var proposedDuration = originalDuration - deltaSeconds
+                            if (proposedDuration < 0.5) {
+                                proposedLeft = originalLeft + originalDuration - 0.5
+                                proposedDuration = 0.5
+                            }
+                            val deltaTrimStart = proposedLeft - originalLeft
+                            val originalTrimStart = clip.additionalProperties["_originalTrimStart"] as? Double ?: clip.trimStartSeconds
+                            clip.additionalProperties["_originalTrimStart"] = originalTrimStart
+                            clip.trimStartSeconds = kotlin.math.max(0.0, originalTrimStart + deltaTrimStart)
+                            clip.leftSeconds = proposedLeft
+                            clip.durationSeconds = proposedDuration
+                        }
                         view.invalidate()
                     }
                     TouchMode.SCROLLING -> {
@@ -253,6 +315,27 @@ class TimelineGestureHandler(
 
                 if (isPendingDrag) {
                     isPendingDrag = false
+                    view.invalidate()
+                } else if (touchMode == TouchMode.TRIMMING && trimClipId != null) {
+                    val dx = x - downX
+                    val deltaSeconds = dx / engine.pixelsPerSecond
+                    val clip = engine.getClip(trimClipId!!)
+                    if (clip != null) {
+                        // revert preview
+                        clip.leftSeconds = trimStartLeft
+                        clip.durationSeconds = trimStartDuration
+                        if (clip.additionalProperties.has("_originalTrimStart")) {
+                            clip.trimStartSeconds = clip.additionalProperties["_originalTrimStart"] as Double
+                            clip.additionalProperties.remove("_originalTrimStart")
+                        }
+                        
+                        // Execute command
+                        val cmd = TrimCommand(clip.id, trimSide!!, deltaSeconds.toDouble(), true, engine.currentTime)
+                        engine.executeCommand(cmd)
+                    }
+                    touchMode = TouchMode.NONE
+                    trimClipId = null
+                    trimSide = null
                     view.invalidate()
                 } else if (touchMode == TouchMode.DRAGGING && draggedClipId != null) {
                     val clipId = draggedClipId!!
@@ -329,6 +412,8 @@ class TimelineGestureHandler(
                 }
 
                 touchMode = TouchMode.NONE
+                SnapEngine.getInstance().endDragSession()
+                activeSnapResult = null
                 velocityTracker?.recycle()
                 velocityTracker = null
                 view.invalidate()
@@ -345,7 +430,9 @@ class TimelineGestureHandler(
         
         val ghostLeftX = x - ghostWidth / 2f
         val timelineLeftPixel = ghostLeftX + viewport.scrollX
-        proposedLeftSeconds = max(0.0, timelineLeftPixel / pps)
+        val rawLeft = max(0.0, timelineLeftPixel / pps)
+        activeSnapResult = SnapEngine.getInstance().snapClip(rawLeft, clip.durationSeconds, pps)
+        proposedLeftSeconds = if (activeSnapResult?.isSnapped == true) activeSnapResult!!.snappedTimeSeconds else rawLeft
         
         val sortedLayers = engine.getAllLayers().sortedBy { it.order }
         val permanentLayers = sortedLayers.filter { !it.id.startsWith("temp_layer_") }
@@ -511,7 +598,47 @@ class TimelineGestureHandler(
         view.invalidate()
     }
 
+
+    private fun hitTestTrimHandle(x: Float, y: Float): Pair<Clip, String>? {
+        val pps = engine.pixelsPerSecond
+        val sortedLayers = engine.getAllLayers().sortedBy { it.order }
+        val density = context.resources.displayMetrics.density
+        val handlePadding = 2f * density
+        val handleWidth = 12f * density
+        val hitPadding = 20f * density // extra padding for fat fingers
+
+        for (clipId in engine.selectedClipIds) {
+            val clip = engine.getClip(clipId) ?: continue
+            val layerIndex = sortedLayers.indexOfFirst { it.id == clip.layerId }
+            if (layerIndex == -1) continue
+
+            val clipY = renderer.headerHeight + layerIndex * (renderer.trackHeight + renderer.trackSpacing) - viewport.scrollY.toFloat()
+            val clipBottom = clipY + renderer.trackHeight
+
+            if (y >= clipY - hitPadding && y <= clipBottom + hitPadding) {
+                val clipLeft = (clip.leftSeconds * pps - viewport.scrollX).toFloat()
+                val clipRight = (clipLeft + clip.durationSeconds * pps).toFloat()
+
+                // Left handle
+                val leftHandleLeft = clipLeft + handlePadding - hitPadding
+                val leftHandleRight = clipLeft + handlePadding + handleWidth + hitPadding
+                if (x in leftHandleLeft..leftHandleRight) {
+                    return Pair(clip, "left")
+                }
+
+                // Right handle
+                val rightHandleLeft = clipRight - handlePadding - handleWidth - hitPadding
+                val rightHandleRight = clipRight - handlePadding + hitPadding
+                if (x in rightHandleLeft..rightHandleRight) {
+                    return Pair(clip, "right")
+                }
+            }
+        }
+        return null
+    }
+
     private fun hitTestClip(x: Float, y: Float): Clip? {
+
         val pps = engine.pixelsPerSecond
         val sortedLayers = engine.getAllLayers().sortedBy { it.order }
 

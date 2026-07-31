@@ -33,6 +33,20 @@ fun TimelineScreen(
     var currentTime by remember { mutableStateOf(engine.currentTime) }
     var selectedClipIds by remember { mutableStateOf(engine.selectedClipIds.toList()) }
     var canUndo by remember { mutableStateOf(engine.canUndo()) }
+
+    val hasKeyframeAtCurrentTime = remember(currentTime, activeClipId) {
+        if (activeClipId == null) false
+        else {
+            val clip = engine.getClip(activeClipId)
+            if (clip == null) false
+            else {
+                val timeOffset = engine.currentTime - clip.leftSeconds
+                val kfList = KeyframeEngine.findKeyframesAtTime(clip, timeOffset, 0.05)
+                kfList.isNotEmpty()
+            }
+        }
+    }
+
     var canRedo by remember { mutableStateOf(engine.canRedo()) }
     var isPlaying by remember { mutableStateOf(false) }
 
@@ -174,12 +188,21 @@ fun TimelineScreen(
                         val activeClipsAtTime = engine.getActiveClips(currentTime)
                         val topActiveClip = activeClipsAtTime.lastOrNull { it.type == ClipType.VIDEO || it.type == ClipType.IMAGE }
                             ?: activeClipsAtTime.lastOrNull()
-                        val activeClipSrc = topActiveClip?.src ?: if (selectedClipIds.isNotEmpty()) engine.getClip(selectedClipIds.first())?.src else null
+                        val selectedClip = selectedClipIds.firstOrNull()?.let { engine.getClip(it) }
+                        val fallbackMediaClip = engine.getAllClips().firstOrNull { it.type == ClipType.VIDEO || it.type == ClipType.IMAGE }
+
+                        val activeClipSrc = topActiveClip?.src
+                            ?: selectedClip?.src
+                            ?: fallbackMediaClip?.src
+
+                        val selectedClipName = topActiveClip?.name
+                            ?: selectedClip?.name
+                            ?: fallbackMediaClip?.name
 
                         EditorPreviewCanvas(
                             aspectRatioString = currentProjectRatio,
                             currentTime = currentTime,
-                            selectedClipName = topActiveClip?.name ?: if (selectedClipIds.isNotEmpty()) engine.getClip(selectedClipIds.first())?.name else null,
+                            selectedClipName = selectedClipName,
                             activeClipSrc = activeClipSrc,
                             onImportClick = {
                                 if (!isMediaPermissionGranted) {
@@ -198,9 +221,25 @@ fun TimelineScreen(
                         onTogglePlay = { isPlaying = !isPlaying },
                         currentTime = currentTime,
                         totalDuration = 30.0,
-                        hasKeyframeAtCurrentTime = false,
+                        hasKeyframeAtCurrentTime = hasKeyframeAtCurrentTime,
                         onToggleKeyframe = {
-                            // Drop / remove keyframe logic
+                            activeClipId?.let { clipId ->
+                                val clip = engine.getClip(clipId)
+                                if (clip != null) {
+                                    val timeOffset = engine.currentTime - clip.leftSeconds
+                                    if (timeOffset >= 0 && timeOffset <= clip.durationSeconds) {
+                                        // add keyframe
+                                        val kf = Keyframe(
+                                            id = "kf_" + java.util.UUID.randomUUID().toString(),
+                                            timeOffset = timeOffset,
+                                            value = 1.0,
+                                            property = "scale",
+                                            interpolation = InterpolationType.LINEAR
+                                        )
+                                        engine.executeCommand(AddKeyframeCommand(clipId, kf))
+                                    }
+                                }
+                            }
                         },
                         onOpenKeyframeCurves = {
                             activeControlMenu = if (activeControlMenu == "animation") null else "animation"
