@@ -212,7 +212,7 @@ class TimelineGestureHandler(
                     }
                     TouchMode.TRIMMING -> {
                         val dx = x - downX
-                        val deltaSeconds = dx / engine.pixelsPerSecond
+                        var deltaSeconds = dx / engine.pixelsPerSecond
                         
                         val clipId = trimClipId ?: return true
                         val clip = engine.getClip(clipId) ?: return true
@@ -324,7 +324,7 @@ class TimelineGestureHandler(
                         // revert preview
                         clip.leftSeconds = trimStartLeft
                         clip.durationSeconds = trimStartDuration
-                        if (clip.additionalProperties.has("_originalTrimStart")) {
+                        if (clip.additionalProperties.containsKey("_originalTrimStart")) {
                             clip.trimStartSeconds = clip.additionalProperties["_originalTrimStart"] as Double
                             clip.additionalProperties.remove("_originalTrimStart")
                         }

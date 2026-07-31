@@ -1,49 +1,29 @@
 const fs = require('fs');
 let code = fs.readFileSync('android/app/src/main/java/com/litecut/app/timeline/TimelineScreen.kt', 'utf8');
 
-const onToggleKeyframeReplace = `                        onToggleKeyframe = {
-                            activeClipId?.let { clipId ->
-                                val clip = engine.getClip(clipId)
-                                if (clip != null) {
-                                    val timeOffset = engine.currentTime - clip.leftSeconds
-                                    if (timeOffset >= 0 && timeOffset <= clip.durationSeconds) {
-                                        // add keyframe
-                                        val kf = Keyframe(
-                                            id = "kf_" + java.util.UUID.randomUUID().toString(),
-                                            timeOffset = timeOffset,
-                                            value = 1.0,
-                                            property = "scale",
-                                            interpolation = InterpolationType.LINEAR
-                                        )
-                                        engine.executeCommand(AddKeyframeCommand(clipId, kf))
-                                    }
-                                }
-                            }
-                        }`;
-
-code = code.replace(
-    '                        onToggleKeyframe = {\n                            // Drop / remove keyframe logic\n                        }',
-    onToggleKeyframeReplace
-);
-
-// Determine hasKeyframeAtCurrentTime
-const hasKeyframeInsert = `
-    val hasKeyframeAtCurrentTime = remember(currentTime, activeClipId) {
+code = code.replace(/val hasKeyframeAtCurrentTime = remember\(currentTime, activeClipId\) \{[\s\S]*?\}\n/, `    val hasKeyframeAtCurrentTime = remember(currentTime, selectedClipIds) {
+        val activeClipId = selectedClipIds.firstOrNull()
         if (activeClipId == null) false
         else {
             val clip = engine.getClip(activeClipId)
             if (clip == null) false
             else {
                 val timeOffset = engine.currentTime - clip.leftSeconds
-                val kfList = KeyframeEngine.findKeyframesAtTime(clip, timeOffset, 0.05)
-                kfList.isNotEmpty()
+                var found = false
+                val kfsObj = clip.additionalProperties["keyframes"]
+                if (kfsObj is org.json.JSONArray) {
+                    for (i in 0 until kfsObj.length()) {
+                        val kf = kfsObj.optJSONObject(i)
+                        if (kf != null && kotlin.math.abs(kf.optDouble("timeOffset", 0.0) - timeOffset) < 0.05) {
+                            found = true
+                            break
+                        }
+                    }
+                }
+                found
             }
         }
     }
-`;
-
-code = code.replace('    var canUndo by remember { mutableStateOf(engine.canUndo()) }', '    var canUndo by remember { mutableStateOf(engine.canUndo()) }\n' + hasKeyframeInsert);
-
-code = code.replace('hasKeyframeAtCurrentTime = false,', 'hasKeyframeAtCurrentTime = hasKeyframeAtCurrentTime,');
+`);
 
 fs.writeFileSync('android/app/src/main/java/com/litecut/app/timeline/TimelineScreen.kt', code);
