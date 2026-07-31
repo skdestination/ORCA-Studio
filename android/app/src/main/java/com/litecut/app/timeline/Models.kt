@@ -107,6 +107,10 @@ data class Clip(
     // so they are fully preserved during operations.
     val additionalProperties: MutableMap<String, Any?> = mutableMapOf()
 ) {
+    var text: String?
+        get() = additionalProperties["text"] as? String
+        set(value) { additionalProperties["text"] = value }
+
     fun deepCopy(
         id: String = this.id,
         layerId: String = this.layerId,

@@ -327,7 +327,7 @@ fun TimelineScreen(
                                     durationSeconds = 5.0,
                                     trimStartSeconds = 0.0
                                 ).apply {
-                                    text = "New Text"
+                                    additionalProperties["text"] = "New Text"
                                 }
                                 engine.executeCommand(CreateClipCommand(newTextClip))
                             }
